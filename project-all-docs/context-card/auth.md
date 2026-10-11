@@ -38,6 +38,7 @@
 - 상류: 없음 (첫 화면)
 - 하류: 가입·로그인 성공 시 accessToken 을 `shared/auth` 의 `tokenStorage.set()` 으로 저장 → 다음 화면으로 이동
   - 다음 화면: 가입 → 프로필 화면(`ROUTES.profile`), 로그인 → 메인 화면(`ROUTES.landing`, `/`)
+  - 메인 "이어하기" → profile / personal_color / recommendation 화면 (UI 결과의 이동 규칙)
 
 ## 공유 상태 - 호출 없이 얽히는 관계
 - 무효화 필요 캐시: 없음
@@ -64,9 +65,17 @@
 - 조립: backend/src/main.py `FEATURE_ROUTERS` 에 한 줄, front/src/app/App.tsx 슬라이스 라우트에 `/`, `/signup`, `/login` (경로 상수는 `shared/navigation` 의 ROUTES)
 
 ## UI 결과
-- 랜딩·메인(`/`): 서비스 소개 한 줄 + "시작하기"(→ 가입) + "로그인" 링크. 로그인한 상태의 메인 화면 구성: {미정}
+- 메인(`/`) — 토큰 유무(`tokenStorage.get()`)로 두 가지 화면
+  - 비로그인: 서비스 소개 한 줄 + "시작하기"(→ `ROUTES.signup`) + "로그인" 링크(→ `ROUTES.login`)
+  - 로그인: 서비스 소개 한 줄 + "{nickname} 님, 반가워요" + "이어하기" + "로그아웃"
+    - 진입 시 `GET /api/users/me` 호출 (nickname 표시용)
+    - "이어하기" 이동 규칙: ageGroup 또는 gender 가 null → `ROUTES.profile` / personalColor 가 null → `ROUTES.personalColor` / 둘 다 있음 → `ROUTES.recommendation`
+    - "로그아웃": `tokenStorage.clear()` 후 비로그인 화면으로 전환 (서버 호출 없음)
+    - users/me 가 401 이면 토큰이 지워지므로(`shared/api`) 비로그인 화면으로 전환
 - 가입(`/signup`)·로그인(`/login`): 닉네임·비밀번호 입력, 제출 버튼
-- 필요 상태: 제출 중 로딩(버튼 비활성) / 에러 — NICKNAME_TAKEN·INVALID_CREDENTIALS 메시지를 폼 아래 표시
+- 필요 상태
+  - 가입·로그인: 제출 중 로딩(버튼 비활성) / 에러 — NICKNAME_TAKEN·INVALID_CREDENTIALS 메시지를 폼 아래 표시
+  - 메인(로그인): users/me 로딩 중에는 "이어하기" 비활성 / 네트워크 에러 시 ErrorMessage + 다시 시도
 - UI 컴포넌트는 `shared/ui` (PageLayout, Button, Loading, ErrorMessage), API 호출은 `shared/api` 의 apiRequest
 
 ## 테스트 환경

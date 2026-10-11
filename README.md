@@ -167,10 +167,11 @@ API 계약 테스트가 타입 공유의 빈자리를 메운다. 백엔드/프�
 
 | 등급 | 경로 | 툴 호출 시점 ([`.claude/settings.json`](project/.claude/settings.json)) | 커밋 시점 ([`.githooks/pre-commit`](project/.githooks/pre-commit)) |
 |---|---|---|---|
-| **하드** | `test/contract/` | `deny` — 프롬프트 없이 거부. 삭제·이동(`rm`/`mv`)도 거부 | 항상 차단. 해제 없음 |
+| **하드** | `test/contract/` | 커밋된(동결된) 슬라이스는 PreToolUse hook(`.claude/hooks/protect-frozen-contract.py`)이 Edit/Write 거부. 삭제·이동(`rm`/`mv`)은 `deny` | 항상 차단. 해제 없음 (동결 커밋은 사람이 `--no-verify`) |
 | **소프트** | `src/common/`, `src/shared/`, `e2e/`, 설정 파일 | `ask` — 사용자 승인 프롬프트 | 차단. `HARNESS_APPROVED=1 git commit`이면 통과 → `approvals.md` 기록 |
 
 - 계약 테스트만 하드인 이유: 채점 기준이라 세션 안에서 풀리면 "동결"이 아니게 된다.
+- 동결 = git 커밋. 커밋 전에는 테스트 세션이 그 자리에서 작성하고, 사람이 승인해 커밋하는 순간부터 hook 이 막는다. 켜고 끄는 설정이 없다.
 - 나머지가 소프트인 이유: DTO 필드 추가 같은 공용 변경은 실제로 필요해진다. 막되 사람이 풀 수 있어야 한다.
 - 훅 우회(`--no-verify`, `HARNESS_APPROVED=`)도 `ask`. 세션이 시도하면 사용자에게 보인다.
 - `--dangerously-skip-permissions`는 `ask`를 전부 무력화하므로 쓰지 않는다.
@@ -182,7 +183,7 @@ API 계약 테스트가 타입 공유의 빈자리를 메운다. 백엔드/프�
 feature/order-cancel/**, test/unit/order-cancel/**   O
 src/common/**, src/shared/**, e2e/**, 설정 파일        △  ask
 feature/order-create/** (다른 슬라이스)                △  HARNESS_SLICE 설정 시 검사 (선택)
-test/contract/**                                     X  deny
+test/contract/**                                     X  동결(커밋) 후 hook 차단, rm/mv 는 deny
 ```
 
 ---

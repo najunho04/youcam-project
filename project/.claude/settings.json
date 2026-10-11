@@ -1,10 +1,6 @@
 {
   "permissions": {
     "deny": [
-      "Edit(backend/test/contract/**)",
-      "Write(backend/test/contract/**)",
-      "Edit(front/test/contract/**)",
-      "Write(front/test/contract/**)",
       "Bash(rm *contract*)",
       "Bash(git rm *contract*)",
       "Bash(mv *contract*)"
@@ -38,6 +34,19 @@
       "Bash(git commit --no-verify*)",
       "Bash(git commit -n *)",
       "Bash(HARNESS_APPROVED=*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-frozen-contract.py\""
+          }
+        ]
+      }
     ]
   }
 }

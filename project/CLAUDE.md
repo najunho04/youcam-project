@@ -6,6 +6,7 @@
   - `front/src/common/**`, `front/src/shared/**`
 - 다음 경로는 절대 수정하지 말 것. 통과하지 않으면 구현한 코드를 고치고, 명세와 불일치하면 멈추고 보고하라.
   - `backend/test/contract/**`, `front/test/contract/**`, `e2e/**`
+  - 예외: **테스트 세션 프롬프트로 명시 지시받은 경우에만** 아직 커밋되지 않은 슬라이스의 계약 테스트를 새로 작성한다. 커밋된(동결된) 계약 테스트는 hook 이 차단한다.
 - 설정 파일(`CLAUDE.md`, `Makefile`, `.claudeignore`, `.githooks/**`, `.claude/**`, 린트 설정)은 절대 수정하지 말 것.
   - 린트·의존성·테스트 공용 설정 포함: `backend/pyproject.toml`, `backend/test/conftest.py`, `front/package.json`, `front/eslint.config.js`, `front/test/setup.ts`
 - 조립 지점(`backend/src/main.py`의 `FEATURE_ROUTERS`, `front/src/app/App.tsx`의 슬라이스 라우트 구역)에는 자기 슬라이스 한 줄만 추가한다.
