@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(backend/test/contract/**)",
+      "Write(backend/test/contract/**)",
+      "Edit(front/test/contract/**)",
+      "Write(front/test/contract/**)",
+      "Bash(rm *contract*)",
+      "Bash(git rm *contract*)",
+      "Bash(mv *contract*)"
+    ],
+    "ask": [
+      "Edit(e2e/**)",
+      "Write(e2e/**)",
+      "Edit(backend/src/common/**)",
+      "Write(backend/src/common/**)",
+      "Edit(backend/src/shared/**)",
+      "Write(backend/src/shared/**)",
+      "Edit(front/src/common/**)",
+      "Write(front/src/common/**)",
+      "Edit(front/src/shared/**)",
+      "Write(front/src/shared/**)",
+      "Edit(backend/test/conftest.py)",
+      "Write(backend/test/conftest.py)",
+      "Edit(backend/pyproject.toml)",
+      "Write(backend/pyproject.toml)",
+      "Edit(front/test/setup.ts)",
+      "Write(front/test/setup.ts)",
+      "Edit(front/eslint.config.js)",
+      "Write(front/eslint.config.js)",
+      "Edit(front/package.json)",
+      "Write(front/package.json)",
+      "Edit(CLAUDE.md)",
+      "Edit(Makefile)",
+      "Edit(.claudeignore)",
+      "Edit(.githooks/**)",
+      "Edit(.claude/**)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit -n *)",
+      "Bash(HARNESS_APPROVED=*)"
+    ]
+  }
+}

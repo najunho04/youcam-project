@@ -1,0 +1,64 @@
+[project]
+name = "colorfit-backend"
+version = "0.1.0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "pydantic-settings>=2.6",
+    "pyjwt>=2.9",
+    "bcrypt>=4.2",
+    "python-multipart>=0.0.12",
+    "boto3>=1.35",
+    "httpx>=0.27",
+    "pillow>=11.0",
+    "numpy>=2.1",
+    "torch>=2.6",
+    "transformers>=4.46",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "import-linter>=2.1",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["test"]
+addopts = "-q"
+
+# 슬라이스 간 import 차단 (make lint). 수정 금지.
+[tool.importlinter]
+root_packages = ["feature", "common", "shared"]
+
+[[tool.importlinter.contracts]]
+name = "슬라이스끼리 import 금지"
+type = "independence"
+modules = ["feature.*"]
+
+[[tool.importlinter.contracts]]
+name = "common·shared 는 feature 를 import 하지 않는다"
+type = "forbidden"
+source_modules = ["common", "shared"]
+forbidden_modules = ["feature"]
+
+[[tool.importlinter.contracts]]
+name = "common 은 타입만 (shared 의존 금지)"
+type = "forbidden"
+source_modules = ["common"]
+forbidden_modules = ["shared"]

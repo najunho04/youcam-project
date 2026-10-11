@@ -1,0 +1,310 @@
+<title>ColorFit 피쳐 그래프</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 왼→오 단계별 열 그래프 + 클릭 상세 패널, 아래에 단계 띠와 슬라이스 표 */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --fg: #1c2230;
+  --muted: #5d6677;
+  --line: #d5dae3;
+  --edge: #8a93a6;
+  --edge-hot: #1c2230;
+  --s0: #7b8394;  /* foundation */
+  --s1: #c2553b;  /* 단계 1 */
+  --s2: #c48a1c;  /* 단계 2 */
+  --s3: #3f8f5a;  /* 단계 3 */
+  --s4: #2f72b8;  /* 단계 4 */
+  --s5: #7a52b3;  /* 단계 5 */
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151c; --surface: #1a1f29; --fg: #e6e9ef; --muted: #9aa3b4; --line: #2c3340;
+    --edge: #6b7487; --edge-hot: #e6e9ef;
+    --s0: #9aa2b2; --s1: #e57a5f; --s2: #e0ad4a; --s3: #62b57d; --s4: #5c9ce0; --s5: #a585dc;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151c; --surface: #1a1f29; --fg: #e6e9ef; --muted: #9aa3b4; --line: #2c3340;
+  --edge: #6b7487; --edge-hot: #e6e9ef;
+  --s0: #9aa2b2; --s1: #e57a5f; --s2: #e0ad4a; --s3: #62b57d; --s4: #5c9ce0; --s5: #a585dc;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding: 32px 20px 48px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 28px; }
+header h1 { margin: 0 0 4px; font-size: 26px; font-weight: 700; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 68ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend .edge-key { width: 28px; height: 0; border-top: 2px solid var(--edge); border-radius: 0; }
+.legend .edge-key.dashed { border-top-style: dashed; }
+
+.graph-area { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .graph-area { grid-template-columns: minmax(0, 1fr); } }
+.graph-scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+svg.graph { display: block; width: 100%; min-width: 860px; height: auto; }
+
+.col-label { font: 500 12px var(--font-body); fill: var(--muted); letter-spacing: 0.04em; }
+.edge { fill: none; stroke: var(--edge); stroke-width: 1.6; transition: stroke 0.15s, opacity 0.15s; }
+.edge.optional { stroke-dasharray: 5 5; }
+.node rect { fill: var(--surface); stroke-width: 2; transition: opacity 0.15s; }
+.node .name { font: 700 14px var(--font-mono); fill: var(--fg); }
+.node .role { font: 400 12px var(--font-body); fill: var(--muted); }
+.node { cursor: pointer; outline: none; }
+.node:focus-visible rect { stroke-width: 3.5; }
+.node.selected rect { stroke-width: 3.5; }
+svg.focus .node.dim, svg.focus .edge.dim { opacity: 0.18; }
+svg.focus .edge.hot { stroke: var(--edge-hot); stroke-width: 2.2; }
+@media (prefers-reduced-motion: reduce) { .edge, .node rect { transition: none; } }
+
+.detail { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+.detail h2 { margin: 0; font: 700 18px var(--font-mono); display: flex; align-items: center; gap: 8px; }
+.detail h2 i { width: 12px; height: 12px; border-radius: 3px; }
+.detail .role-text { margin: 0; color: var(--muted); }
+.detail dl { margin: 0; display: grid; gap: 10px; }
+.detail dt { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+.detail dd { margin: 2px 0 0; }
+.chip { display: inline-block; font: 500 12px var(--font-mono); padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; margin: 0 4px 4px 0; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+h3 { margin: 0 0 12px; font-size: 17px; }
+.stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 900px) { .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stage { border-top: 4px solid; padding-top: 8px; display: grid; gap: 4px; align-content: start; }
+.stage b { font-size: 13px; }
+.stage small { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.stage .mono { font-size: 13px; }
+
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.04em; }
+td.slice { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
+td.slice i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+
+.notes { display: grid; gap: 6px; padding-left: 18px; margin: 0; color: var(--fg); }
+.notes li::marker { color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>ColorFit 피쳐 의존 그래프</h1>
+    <p>슬라이스 8개와 공용 레이어(foundation). 슬라이스끼리는 서로 import하지 않으며, 화살표는 <b>데이터·화면 흐름 의존</b>이다. 노드를 누르면 상류·하류만 강조된다.</p>
+  </header>
+
+  <div class="legend" aria-label="범례">
+    <span><i style="background:var(--s0)"></i>foundation</span>
+    <span><i style="background:var(--s1)"></i>단계 1</span>
+    <span><i style="background:var(--s2)"></i>단계 2 (병렬)</span>
+    <span><i style="background:var(--s3)"></i>단계 3</span>
+    <span><i style="background:var(--s4)"></i>단계 4</span>
+    <span><i style="background:var(--s5)"></i>단계 5</span>
+    <span><i class="edge-key"></i>필수 의존</span>
+    <span><i class="edge-key dashed"></i>선택 (없어도 동작)</span>
+  </div>
+
+  <div class="graph-area">
+    <div class="graph-scroll">
+      <svg class="graph" id="graph" viewBox="0 0 1165 500" role="img" aria-label="피쳐 의존 그래프">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--edge)"></path>
+          </marker>
+          <marker id="arrow-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--edge-hot)"></path>
+          </marker>
+        </defs>
+        <g id="col-labels"></g>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </svg>
+    </div>
+
+    <aside class="detail" id="detail" aria-live="polite">
+      <p class="hint">노드를 눌러 상세를 확인하세요.</p>
+    </aside>
+  </div>
+
+  <section>
+    <h3>구현 순서</h3>
+    <div class="stages" id="stages"></div>
+  </section>
+
+  <section>
+    <h3>슬라이스 목록</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>슬라이스</th><th>화면 / 역할</th><th>상류</th><th>하류</th><th>쓰는 테이블</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h3>충돌 주의</h3>
+    <ul class="notes">
+      <li><code>users</code>는 auth · profile · personal_color가 <b>서로 다른 컬럼</b>만 쓴다.</li>
+      <li><code>fittings</code>는 personal_color가 사진 재업로드 시 삭제하고, fitting이 생성·갱신한다.</li>
+      <li>조립 지점 <code>backend/src/main.py</code>, <code>front/src/app/</code>는 슬라이스마다 한 줄씩 추가된다. 병렬 머지 때 충돌 가능.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const COLUMN_X = [5, 205, 405, 605, 805, 1005];
+const NODE_WIDTH = 155, NODE_HEIGHT = 58;
+const STAGES = [
+  { label: "foundation", period: "10/12 – 10/14", note: "공용 레이어" },
+  { label: "단계 1", period: "10/15 – 10/17", note: "레퍼런스 + 데이터" },
+  { label: "단계 2", period: "10/18 – 10/21", note: "입력 (병렬 3)" },
+  { label: "단계 3", period: "10/22 – 10/23", note: "취향" },
+  { label: "단계 4", period: "10/24 – 10/26", note: "추천" },
+  { label: "단계 5", period: "10/27 – 10/28", note: "피팅" },
+];
+const NODES = {
+  foundation:     { stage: 0, y: 215, role: "common · shared · 조립", tables: "모델 5개 정의", detail: "DB 세션, JWT, S3, YouCam 클라이언트, 임베딩 로더, 에러 핸들러, 프론트 api·auth·ui. 사람 승인 하에 먼저 구축." },
+  product_ingest: { stage: 1, y: 40,  role: "배치 · 화면 없음", tables: "products (유일한 쓰기)", detail: "네이버 쇼핑 수집 → FashionCLIP 임베딩 + 대표색 → products upsert. auth와 병렬 가능." },
+  auth:           { stage: 1, y: 300, role: "랜딩 · 가입 · 로그인", tables: "users (계정 컬럼)", detail: "닉네임 + 비밀번호. 레퍼런스 슬라이스로 단독 구현 후 _reference-slice 대체." },
+  profile:        { stage: 2, y: 130, role: "나이대 · 성별", tables: "users.age_group / gender", detail: "스와이프 이미지 풀 필터에 쓰인다." },
+  personal_color: { stage: 2, y: 275, role: "사진 2장 · 컬러 결과", tables: "users.season / selfie_key / body_image_key, fittings 삭제", detail: "얼굴 사진 → YouCam 피부톤 분석 → 시즌 매핑. 상반신 사진은 피팅 원본으로 저장." },
+  wardrobe:       { stage: 2, y: 420, role: "옷장 사진 (선택)", tables: "wardrobe_photos", detail: "1~4장 업로드 → 임베딩. 컷 라인 1순위." },
+  swipe:          { stage: 3, y: 85,  role: "스와이프 온보딩", tables: "swipes", detail: "성별·나이대 필터 + 스타일 균등 샘플링 20장. 끝나고 한 번에 제출." },
+  recommendation: { stage: 4, y: 230, role: "추천 결과 · 구매 링크", tables: "읽기 전용", detail: "0.7 × 취향 + 0.3 × 컬러, 상위 5개. 좋아요 3개 미만이면 인기 상품 폴백." },
+  fitting:        { stage: 5, y: 230, role: "가상 피팅 · 비교", tables: "fittings", detail: "POST 202 → 2초 폴링. 같은 (user, product)는 캐시." },
+};
+const EDGES = [
+  ["foundation", "product_ingest"], ["foundation", "auth"],
+  ["auth", "profile"], ["auth", "personal_color"], ["auth", "wardrobe"],
+  ["profile", "swipe"], ["product_ingest", "swipe"],
+  ["swipe", "recommendation"], ["personal_color", "recommendation"],
+  ["wardrobe", "recommendation", "optional"],
+  ["recommendation", "fitting"], ["personal_color", "fitting", "below"],
+];
+
+const svgNamespace = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("graph");
+const stageColor = stage => `var(--s${stage})`;
+function svgElement(tag, attributes) {
+  const element = document.createElementNS(svgNamespace, tag);
+  for (const key in attributes) element.setAttribute(key, attributes[key]);
+  return element;
+}
+
+for (const [name, node] of Object.entries(NODES)) {
+  node.name = name;
+  node.x = COLUMN_X[node.stage];
+  node.upstream = EDGES.filter(edge => edge[1] === name).map(edge => edge[0]);
+  node.downstream = EDGES.filter(edge => edge[0] === name).map(edge => edge[1]);
+}
+
+const columnLabels = document.getElementById("col-labels");
+STAGES.forEach((stage, index) => {
+  const label = svgElement("text", { x: COLUMN_X[index] + NODE_WIDTH / 2, y: 16, "text-anchor": "middle", class: "col-label" });
+  label.textContent = stage.label;
+  columnLabels.appendChild(label);
+});
+
+const edgeLayer = document.getElementById("edges");
+const edgeElements = EDGES.map(([from, to, kind]) => {
+  const source = NODES[from], target = NODES[to];
+  let pathData;
+  if (kind === "below") {
+    const startX = source.x + NODE_WIDTH - 20, startY = source.y + NODE_HEIGHT;
+    const endX = target.x + NODE_WIDTH / 2, endY = target.y + NODE_HEIGHT;
+    pathData = `M${startX},${startY} C${startX + 120},${startY + 110} ${endX},${endY + 120} ${endX},${endY + 2}`;
+  } else {
+    const startX = source.x + NODE_WIDTH, startY = source.y + NODE_HEIGHT / 2;
+    const endX = target.x - 2, endY = target.y + NODE_HEIGHT / 2;
+    const bend = (endX - startX) * 0.5;
+    pathData = `M${startX},${startY} C${startX + bend},${startY} ${endX - bend},${endY} ${endX},${endY}`;
+  }
+  const path = svgElement("path", { d: pathData, class: "edge" + (kind === "optional" ? " optional" : ""), "marker-end": "url(#arrow)" });
+  path.dataset.from = from; path.dataset.to = to;
+  edgeLayer.appendChild(path);
+  return path;
+});
+
+const nodeLayer = document.getElementById("nodes");
+const nodeElements = {};
+for (const node of Object.values(NODES)) {
+  const group = svgElement("g", { class: "node", tabindex: "0", role: "button", "aria-label": `${node.name}: ${node.role}` });
+  group.appendChild(svgElement("rect", { x: node.x, y: node.y, width: NODE_WIDTH, height: NODE_HEIGHT, rx: 8, stroke: stageColor(node.stage) }));
+  group.appendChild(svgElement("rect", { x: node.x, y: node.y, width: 6, height: NODE_HEIGHT, rx: 3, fill: stageColor(node.stage), stroke: "none", style: `fill:${stageColor(node.stage)}` }));
+  const nameText = svgElement("text", { x: node.x + 16, y: node.y + 25, class: "name" });
+  nameText.textContent = node.name;
+  const roleText = svgElement("text", { x: node.x + 16, y: node.y + 44, class: "role" });
+  roleText.textContent = node.role;
+  group.append(nameText, roleText);
+  group.addEventListener("click", () => select(node.name));
+  group.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(node.name); } });
+  nodeLayer.appendChild(group);
+  nodeElements[node.name] = group;
+}
+
+let selectedName = null;
+function chips(names) {
+  return names.length ? names.map(name => `<span class="chip">${name}</span>`).join("") : "<span class=\"hint\">없음</span>";
+}
+function select(name) {
+  if (selectedName === name) { clearSelection(); return; }
+  selectedName = name;
+  const node = NODES[name];
+  const related = new Set([name, ...node.upstream, ...node.downstream]);
+  svg.classList.add("focus");
+  for (const [nodeName, element] of Object.entries(nodeElements)) {
+    element.classList.toggle("dim", !related.has(nodeName));
+    element.classList.toggle("selected", nodeName === name);
+  }
+  for (const path of edgeElements) {
+    const isHot = path.dataset.from === name || path.dataset.to === name;
+    path.classList.toggle("hot", isHot);
+    path.classList.toggle("dim", !isHot);
+    path.setAttribute("marker-end", isHot ? "url(#arrow-hot)" : "url(#arrow)");
+  }
+  document.getElementById("detail").innerHTML = `
+    <h2><i style="background:${stageColor(node.stage)}"></i>${name}</h2>
+    <p class="role-text">${node.role} · ${STAGES[node.stage].label}</p>
+    <dl>
+      <div><dt>설명</dt><dd>${node.detail}</dd></div>
+      <div><dt>상류</dt><dd>${chips(node.upstream)}</dd></div>
+      <div><dt>하류</dt><dd>${chips(node.downstream)}</dd></div>
+      <div><dt>테이블</dt><dd>${node.tables}</dd></div>
+    </dl>
+    <p class="hint">같은 노드를 다시 누르면 선택 해제.</p>`;
+}
+function clearSelection() {
+  selectedName = null;
+  svg.classList.remove("focus");
+  Object.values(nodeElements).forEach(element => element.classList.remove("dim", "selected"));
+  edgeElements.forEach(path => { path.classList.remove("hot", "dim"); path.setAttribute("marker-end", "url(#arrow)"); });
+  document.getElementById("detail").innerHTML = '<p class="hint">노드를 눌러 상세를 확인하세요.</p>';
+}
+
+document.getElementById("stages").innerHTML = STAGES.map((stage, index) => {
+  const members = Object.values(NODES).filter(node => node.stage === index).map(node => `<span class="mono">${node.name}</span>`).join("");
+  return `<div class="stage" style="border-color:${stageColor(index)}"><b>${stage.label} · ${stage.note}</b><small>${stage.period}</small>${members}</div>`;
+}).join("");
+
+document.getElementById("rows").innerHTML = Object.values(NODES).filter(node => node.name !== "foundation").map(node => `
+  <tr>
+    <td class="slice"><i style="background:${stageColor(node.stage)}"></i>${node.name}</td>
+    <td>${node.role}</td>
+    <td>${chips(node.upstream)}</td>
+    <td>${chips(node.downstream)}</td>
+    <td>${node.tables}</td>
+  </tr>`).join("");
+
+select("recommendation");
+</script>

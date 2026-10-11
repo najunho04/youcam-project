@@ -1,0 +1,44 @@
+# 개발: make dev → db 만 띄움 / 배포(EC2): make up → db + backend + web
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: colorfit
+      POSTGRES_PASSWORD: colorfit
+      POSTGRES_DB: colorfit
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/create-test-database.sql:/docker-entrypoint-initdb.d/create-test-database.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U colorfit"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    profiles: ["prod"]
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://colorfit:colorfit@db:5432/colorfit
+    volumes:
+      - model-cache:/app/.cache/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    profiles: ["prod"]
+    build: ./front
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  model-cache:

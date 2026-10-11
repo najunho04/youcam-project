@@ -1,0 +1,80 @@
+#!/usr/bin/env sh
+# 커밋 시점 경계 검사. 두 등급으로 나뉜다.
+#   하드 (exit 2): 계약 테스트. 어떤 경우에도 커밋 불가. 변경이 필요하면 사람이 훅 밖에서 처리한다.
+#   소프트 (exit 1): 공용 레이어·E2E·설정 파일. 기본 차단. 사람이 승인한 경우 HARNESS_APPROVED=1 로 커밋하고
+#                    project-all-docs/approvals.md 에 기록한다. 이 변수는 사용자만 쓴다.
+
+HARD_PATHS="
+backend/test/contract/
+front/test/contract/
+"
+
+SOFT_PATHS="
+e2e/
+backend/src/common/
+backend/src/shared/
+front/src/common/
+front/src/shared/
+backend/test/conftest.py
+backend/pyproject.toml
+backend/uv.lock
+front/test/setup.ts
+front/eslint.config.js
+front/package.json
+front/package-lock.json
+CLAUDE.md
+Makefile
+.claudeignore
+.githooks/
+.claude/
+"
+
+# project/ 가 레포 루트가 아닌 하위 폴더여도 동작하도록, 훅 위치 기준으로 프리픽스를 계산한다.
+PROJECT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+REPO_ROOT=$(git rev-parse --show-toplevel)
+PREFIX=${PROJECT_DIR#"$REPO_ROOT"}
+PREFIX=${PREFIX#/}
+[ -n "$PREFIX" ] && PREFIX="$PREFIX/"
+
+STAGED=$(git diff --cached --name-only)
+
+match_paths() {
+  for path in $1; do
+    echo "$STAGED" | grep "^$PREFIX$path" || true
+  done
+}
+
+HARD_HITS=$(match_paths "$HARD_PATHS")
+if [ -n "$HARD_HITS" ]; then
+  echo "[harness] 동결 경로 변경이 감지되어 커밋을 차단합니다 (하드):"
+  echo "$HARD_HITS"
+  echo ""
+  echo "구현 코드를 고쳐 테스트를 통과시키거나, 명세 불일치라면 멈추고 사용자에게 보고하세요."
+  exit 2
+fi
+
+SOFT_HITS=$(match_paths "$SOFT_PATHS")
+if [ -n "$SOFT_HITS" ]; then
+  if [ "$HARNESS_APPROVED" = "1" ]; then
+    echo "[harness] HARNESS_APPROVED=1 — 보호 경로 변경 승인됨. approvals.md 에 기록할 것:"
+    echo "$SOFT_HITS"
+    exit 0
+  fi
+  echo "[harness] 보호 경로 변경이 감지되어 커밋을 차단합니다 (소프트):"
+  echo "$SOFT_HITS"
+  echo ""
+  echo "코드를 작성하지 말고 멈춰서 필요한 변경 사항을 사용자에게 설명하세요."
+  echo "사용자가 승인하면 HARNESS_APPROVED=1 git commit 으로 커밋합니다."
+  exit 1
+fi
+
+# 슬라이스 간 import 차단. HARNESS_APPROVED 로도 풀리지 않는다 (승인 대상이 아니라 설계 오류).
+# Makefile 의 lint 타겟이 아직 TODO 면 경고만 내고 통과시킨다.
+if make -s -n -C "$PROJECT_DIR" lint 2>/dev/null | grep -q TODO; then
+  echo "[harness] lint 타겟 미구현. Makefile 을 채우면 커밋 시점에 강제됩니다."
+elif ! make -s -C "$PROJECT_DIR" lint; then
+  echo "[harness] 린트 실패. 슬라이스 간 import 위반을 확인하세요."
+  exit 1
+fi
+
+exit 0
