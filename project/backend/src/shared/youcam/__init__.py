@@ -18,6 +18,8 @@ from shared.config import YouCamMode, get_settings
 
 SKIN_TONE_FEATURE = "skin-tone-analysis"
 CLOTH_FEATURE = "cloth-v4"
+# 얼굴 인식 실패로 보는 코드 (error_face* 접두 코드 외). 공식 스펙 ai_skin_tone_analysis.yaml 기준
+FACE_ERROR_CODES = {"error_no_face", "error_below_min_image_size"}
 
 
 class YouCamTaskStatus(StrEnum):
@@ -97,7 +99,7 @@ class LiveYouCamClient:
             except (KeyError, TypeError) as error:
                 raise AppError(ErrorCode.EXTERNAL_API_FAILED, "YouCam 응답 형식 오류") from error
         error_code = str(data.get("error") or data.get("error_code") or "")
-        if error_code.startswith("error_face") or error_code == "error_below_min_image_size":
+        if error_code.startswith("error_face") or error_code in FACE_ERROR_CODES:
             raise AppError(ErrorCode.FACE_NOT_DETECTED, error_code)
         raise AppError(ErrorCode.EXTERNAL_API_FAILED, error_code or "YouCam 분석 실패")
 
