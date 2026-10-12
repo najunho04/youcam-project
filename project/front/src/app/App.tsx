@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { LandingPage, LoginPage, SignupPage } from '../feature/auth'
 import { PersonalColorPage } from '../feature/personal_color'
 import { ProfilePage } from '../feature/profile'
+import { RecommendationPage } from '../feature/recommendation'
 import { SwipePage } from '../feature/swipe'
 import { WardrobePage } from '../feature/wardrobe'
 import { RequireAuth } from '../shared/auth'
@@ -29,6 +30,7 @@ export function App() {
         <Route path={ROUTES.wardrobe} element={<RequireAuth><WardrobePage /></RequireAuth>} />
         <Route path={ROUTES.personalColor} element={<RequireAuth><PersonalColorPage /></RequireAuth>} />
         <Route path={ROUTES.swipe} element={<RequireAuth><SwipePage /></RequireAuth>} />
+        <Route path={ROUTES.recommendation} element={<RequireAuth><RecommendationPage /></RequireAuth>} />
         {/* ---- 슬라이스 라우트 끝 ---- */}
         <Route path="*" element={<NotReadyPage />} />
       </Routes>
