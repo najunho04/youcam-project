@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from feature import auth
 from shared.config import StorageMode, get_settings
 from shared.database import initialize_database
 from shared.exception import register_exception_handlers
@@ -12,6 +13,7 @@ from shared.storage import LocalStorage
 
 # ---- 슬라이스 라우터 (슬라이스당 한 줄. 각 router 는 prefix 없이 "/api/..." 전체 경로를 쓴다) ----
 FEATURE_ROUTERS: list[APIRouter] = [
+    auth.router,
 ]
 # ---- 슬라이스 라우터 끝 ----
 
