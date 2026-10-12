@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from feature import auth, profile
+from feature import auth, personal_color, profile
 from shared.config import StorageMode, get_settings
 from shared.database import initialize_database
 from shared.exception import register_exception_handlers
@@ -15,6 +15,7 @@ from shared.storage import LocalStorage
 FEATURE_ROUTERS: list[APIRouter] = [
     auth.router,
     profile.router,
+    personal_color.router,
 ]
 # ---- 슬라이스 라우터 끝 ----
 
