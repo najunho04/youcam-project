@@ -3,7 +3,24 @@
     "deny": [
       "Bash(rm *contract*)",
       "Bash(git rm *contract*)",
-      "Bash(mv *contract*)"
+      "Bash(mv *contract*)",
+      "Read(//home/najunho/youcam-project/project-all-docs/**)",
+      "Edit(//home/najunho/youcam-project/project-all-docs/**)",
+      "Write(//home/najunho/youcam-project/project-all-docs/**)",
+      "Read(//home/najunho/youcam-project/*.md)",
+      "Edit(//home/najunho/youcam-project/*.md)",
+      "Write(//home/najunho/youcam-project/*.md)",
+      "Read(//home/najunho/youcam-project/.gitignore)",
+      "Edit(//home/najunho/youcam-project/.gitignore)",
+      "Write(//home/najunho/youcam-project/.gitignore)",
+      "Edit(//home/najunho/youcam-project/.git/**)",
+      "Write(//home/najunho/youcam-project/.git/**)",
+      "Bash(cd ..*)",
+      "Bash(*../*)",
+      "Bash(*/home/najunho/youcam-project/project-all-docs*)",
+      "Bash(*/home/najunho/youcam-project/README*)",
+      "Bash(git -C ..*)",
+      "Bash(*HARNESS_ADMIN*)"
     ],
     "ask": [
       "Edit(e2e/**)",

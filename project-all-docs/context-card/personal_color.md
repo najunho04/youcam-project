@@ -31,7 +31,12 @@
   1. 두 파일 모두 `read_upload_image(file)` 검증
   2. `get_storage().upload(new_object_key("selfies", ...))`, `upload(new_object_key("body-images", ...))`
   3. `get_youcam_client().analyze_skin_tone(get_storage().get_url(selfie_key))` → `SkinToneResult.skin_color_hex` (상반신 사진은 분석하지 않음)
-  4. 피부색 hex → Season 판정: {미정 — 판정 규칙 없음. 보고 참고}
+  4. 피부색 hex → Season 판정 (Lab 2축, `shared.color.hex_to_lab` 사용):
+     - 웜/쿨: b* ≥ 18 → 웜, b* < 18 → 쿨
+     - 밝기: L* ≥ 70 → 밝음(봄·여름), L* < 70 → 어두움(가을·겨울)
+     - 웜+밝음 = SPRING_WARM / 쿨+밝음 = SUMMER_COOL / 웜+어두움 = AUTUMN_WARM / 쿨+어두움 = WINTER_COOL
+     - 기준값 18·70 은 슬라이스 상수로 둔다
+     - 예시 (L*, b*): `#F2D3B1`(86.3, 20.8) → SPRING_WARM / `#F5D5C8`(87.6, 10.5) → SUMMER_COOL / `#B07B4F`(56.0, 32.1) → AUTUMN_WARM / `#8E6A63`(48.2, 9.5) → WINTER_COOL
   5. users.season, selfie_key, body_image_key 저장. 이전 키가 있으면 저장소에서 삭제. 해당 사용자의 fittings 행 전부 삭제
 - palette = `shared.color.SEASON_PALETTES[season]`
 
@@ -45,12 +50,12 @@
 
 ## 횡단 관심사
 - 권한: 본인만 (`CurrentUser`)
-- 트랜잭션 경계: 요청 1개. 분석 실패 시 users·fittings 는 바뀌지 않아야 한다 (업로드한 새 파일 정리 여부: {미정})
+- 트랜잭션 경계: 요청 1개. 분석 실패 시 users·fittings 는 바뀌지 않아야 한다. 이번 요청에서 업로드한 새 파일은 저장소에서 삭제한다
 - 에러 처리: 공통 규약 따름
 - YouCam 은 `get_youcam_client()` 로만 호출 (테스트·개발은 mock)
 
 ## 불변조건
-- 분석에 실패하면 기존 season·selfie_key·body_image_key 가 유지된다
+- 분석에 실패하면 기존 season·selfie_key·body_image_key 가 유지되고, 저장소에 새 파일이 남지 않는다 (기존 파일도 지워지지 않는다)
 - 성공하면 해당 사용자의 기존 fittings 가 남아 있지 않다
 - 응답의 palette 는 season 의 SEASON_PALETTES 와 같다
 
@@ -67,7 +72,7 @@
   - 얼굴 사진: 정면, 자연광, 화장 최소화, 얼굴이 화면을 가득 채우게
   - 상반신 사진: 정면으로 서서, 가슴 위 상반신과 어깨가 보이게, 혼자 나오게
 - 두 장 모두 선택해야 "분석하기" 버튼 활성
-- 결과: 시즌 이름(한글 표기 {미정}) + 팔레트 색 칩 + 얼굴 사진 + "다음" 버튼
+- 결과: 시즌 이름(한글 표기: 봄 웜톤 / 여름 쿨톤 / 가을 웜톤 / 겨울 쿨톤) + 팔레트 색 칩 + 얼굴 사진 + "다음" 버튼
 - 필요 상태: 분석 중 로딩(수 초 소요) / FACE_NOT_DETECTED 시 얼굴 사진 재촬영 안내 + 가이드 다시 표시 / 기타 에러
 - 상반신 사진이 피팅 조건에 맞는지는 여기서 검사하지 않는다 (피팅 실패 시 fitting 화면에서 FAILED 로 드러남)
 

@@ -22,14 +22,14 @@
 - POST /api/wardrobe-photos (인증 필요, multipart/form-data)
   - Request: 필드 `images` 1~4개 — 각각 jpg/png, 10MB 이하
   - Response 200 `WardrobePhotosResponse { photos: WardrobePhotoDto[] }`, `WardrobePhotoDto { id: number, imageUrl: string }`
-    - photos 범위: {미정 — 이번에 올린 것만 / 사용자 전체}
+    - photos 범위: 이번 업로드 후 사용자의 전체 사진 (기존 + 이번), id 오름차순
   - Error:
     - INVALID_IMAGE(400) — 하나라도 이미지가 아니면 전체 거부
     - WARDROBE_LIMIT_EXCEEDED(409) — 기존 개수 + 이번 개수 > 4
     - VALIDATION_ERROR(422) — images 0개 또는 5개 이상
     - UNAUTHORIZED(401)
 - 처리: `read_upload_image` 검증 → `get_storage().upload(new_object_key("wardrobe", ...))` → `get_embedding_model().embed_images([...])` → 행 저장
-- 임베딩 전 전처리(배경 제거·상의 크롭): {미정}
+- 임베딩 전 전처리: 없음 (검증된 원본 이미지를 그대로 임베딩)
 
 ## 상하류
 - 상류: 스와이프 완료 후 이동해 옴

@@ -20,15 +20,15 @@
 ## 계약
 - POST /api/auth/signup
   - Request `AuthRequest { nickname: string(2~20), password: string(4~72) }`
-  - Response 200 `AuthResponse { accessToken: string, user: UserDto }`
+  - Response 200 `AuthResponse { accessToken: string, user: UserDto }` — 가입 직후 user 의 ageGroup·gender·personalColor 는 null
   - Error: NICKNAME_TAKEN(409) — 같은 닉네임 존재 / VALIDATION_ERROR(422) — 길이 위반
 - POST /api/auth/login
   - Request `AuthRequest`
   - Response 200 `AuthResponse`
-  - Error: INVALID_CREDENTIALS(401) — 닉네임 없음 또는 비밀번호 불일치 (둘을 구분하지 않음)
+  - Error: INVALID_CREDENTIALS(401) — 닉네임 없음 또는 비밀번호 불일치 (둘을 구분하지 않음) / VALIDATION_ERROR(422) — 길이 위반 (signup 과 동일)
 - GET /api/users/me (인증 필요)
   - Response 200 `UserDto`
-  - Error: UNAUTHORIZED(401) — 토큰 없음/만료/위조
+  - Error: UNAUTHORIZED(401) — 토큰 없음/만료/위조, 또는 토큰은 유효하나 해당 사용자가 DB 에 없음
 - DTO
   - `UserDto { id: number, nickname: string, ageGroup: AgeGroup|null, gender: Gender|null, personalColor: PersonalColorDto|null }`
   - `PersonalColorDto { season: Season, palette: string[] (hex), selfieUrl: string, bodyImageUrl: string }` — users.season, selfie_key, body_image_key 가 **모두** 있을 때만 채움. palette 는 `shared.color.SEASON_PALETTES[season]`, selfieUrl 은 `get_storage().get_url(selfie_key)`, bodyImageUrl 은 `get_storage().get_url(body_image_key)`
@@ -54,6 +54,7 @@
 
 ## 불변조건
 - 닉네임은 유일하다 (DB UNIQUE 위반도 NICKNAME_TAKEN 으로 변환)
+- 닉네임은 trim 하지 않고 대소문자를 구분한다 ("Abc" 와 "abc" 는 다른 닉네임)
 - 비밀번호 원문은 저장·로그·응답 어디에도 남지 않는다
 - 응답에 password_hash 가 포함되지 않는다
 
