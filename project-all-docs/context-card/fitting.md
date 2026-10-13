@@ -22,12 +22,14 @@
 ## 계약
 - POST /api/fittings (인증 필요)
   - Request `FittingCreateRequest { productId: number }`
-  - Response **202** `FittingDto { id: number, productId: number, status: FittingStatus, originalImageUrl: string, resultImageUrl: string|null }`
+  - Response **202** `FittingDto { id: number, productId: number, product: ProductDto, status: FittingStatus, originalImageUrl: string, resultImageUrl: string|null }`
+    - `ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }` (recommendation 과 같은 공용 DTO)
     - originalImageUrl = get_storage().get_url(users.body_image_key), resultImageUrl = DONE 일 때 get_url(result_key), 아니면 null
   - 동작:
     - (user, product) 행이 DONE → 그대로 반환 (YouCam 호출 없음, 캐시)
-    - 행이 PENDING → 그대로 반환 (중복 호출 없음)
-    - 행이 없음 또는 FAILED → PENDING 으로 생성/갱신 후 백그라운드 작업 시작 (FastAPI BackgroundTasks)
+    - 행이 PENDING 이고 created_at 이 3분 이내 → 그대로 반환 (중복 호출 없음)
+    - 행이 없음, FAILED, 또는 created_at 이 3분을 넘은 PENDING(서버 재시작 등으로 멈춘 작업) → status PENDING, result_key NULL, created_at = 현재 시각으로 생성/갱신 후 백그라운드 작업 시작 (FastAPI BackgroundTasks)
+      - created_at 은 "마지막으로 작업을 시작한 시각"으로 쓴다. 3분은 슬라이스 상수 (서버 YouCam 대기 120초 + 여유)
   - Error: PRODUCT_NOT_FOUND(404) / PERSONAL_COLOR_REQUIRED(409) — body_image_key 없음 / UNAUTHORIZED(401)
 - GET /api/fittings/{fittingId} (인증 필요)
   - Response 200 `FittingDto`
@@ -40,7 +42,7 @@
 ## 상하류
 - 상류: 추천 카드의 "입어보기" → `ROUTES.fitting(productId)` 로 이동해 옴
 - 하류: "구매하러 가기" → 상품 purchaseUrl (새 탭), "다른 상품 입어보기" → `ROUTES.recommendation`
-  - 화면에 상품 정보(이름·가격·purchaseUrl) 표시가 필요하지만 FittingDto 에 없음: {미정 — 보고 참고}
+  - 화면의 상품 정보(이름·가격·쇼핑몰·purchaseUrl)는 FittingDto.product 로 받는다
 
 ## 공유 상태 - 호출 없이 얽히는 관계
 - 무효화 필요 캐시: 없음
@@ -55,6 +57,7 @@
 ## 불변조건
 - (user_id, product_id) 당 fittings 행은 최대 1개
 - DONE 이면 result_key 가 있고, 그 외에는 resultImageUrl 이 null
+- 응답의 product 는 productId 의 상품과 같다
 - DONE 인 피팅을 다시 요청해도 YouCam 을 호출하지 않는다
 
 ## 충돌 주의
@@ -65,7 +68,9 @@
 - 조립: main.py 한 줄, App.tsx 에 `ROUTES.fittingPattern` (RequireAuth)
 
 ## UI 결과
-- 진입 시 POST → PENDING 이면 GET 을 2초 간격 폴링 {폴링 최대 시간 미정}
+- 진입 시 POST → PENDING 이면 GET 을 2초 간격 폴링, 최대 150초 (서버 YouCam 대기 120초 + 여유 30초)
+  - 150초가 지나도 PENDING 이면 폴링을 멈추고 "시간이 오래 걸리고 있어요" + "다시 확인"(GET 재호출 후 PENDING 이면 폴링 재개) 표시
+  - 화면을 떠나면 폴링을 멈춘다
 - DONE: 원본 / 결과 비교 보기, "구매하러 가기", "다른 상품 입어보기"
 - 필요 상태: 생성 중 로딩("입혀보는 중") / FAILED 시 상품 이미지만 보여주고 "다시 시도"(POST 재호출) / 에러
 

@@ -224,7 +224,7 @@ cd /home/najunho/youcam-project && git switch -c slice/{slice}
 | 스키마 관리 | Alembic 없이 `create_all`. 변경 시 `docker compose down -v` | 해커톤 |
 | 컷 라인 | ① wardrobe ② 스와이프 적응형 노출 ③ 추천 이유 텍스트 임베딩 | 시간 부족 시 이 순서로 제외 |
 
-**남은 `{미정}`:** recommendation(점수 변환식, 태그 생성 방법, 폴백 기준) · fitting(상품 정보 표시, 폴링 최대 시간) · auth(E2E 담당)
+**남은 `{미정}`:** auth(E2E 담당)
 
 ---
 

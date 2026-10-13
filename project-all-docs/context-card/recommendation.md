@@ -19,7 +19,7 @@
 ## 계약
 - GET /api/recommendations (인증 필요)
   - Response 200 `RecommendationResponse`
-    - `styleTags: string[]` — 사용자 취향 요약 태그 2~3개 {생성 방법 미정}
+    - `styleTags: string[]` — 사용자 취향 요약 태그 1~3개 (아래 계산 규칙)
     - `season: Season`, `palette: string[]` (= SEASON_PALETTES[season])
     - `isFallback: boolean` — 좋아요 3개 미만이면 true
     - `items: RecommendationItem[]` — 최대 5개, score 내림차순
@@ -29,11 +29,24 @@
 - 계산:
   - 후보: products 중 gender·age_group 일치, category = TOP, **사용자가 스와이프한 상품 제외**
   - 취향 벡터 `u = normalize(mean(L) + 1.5 × mean(C) − 0.5 × mean(D))` — L: 좋아요 상품 embedding, C: wardrobe_photos embedding, D: 싫어요 상품 embedding. 비어 있는 항은 0 벡터
-  - tasteScore = cos(u, product.embedding) 의 0~1 변환 {변환식 미정}
-  - colorScore = 상품 color_lab 과 팔레트(`shared.color.palette_lab(season)`) 중 가장 가까운 색의 ΔE(`shared.color.delta_e`) → 0~1 {변환식 미정}
+  - tasteScore = 후보 안에서 Z-score 정규화 후 표준정규 CDF:
+    - c_i = cos(u, product_i.embedding), μ·σ = 전체 후보 c_i 의 평균·모표준편차(ddof=0)
+    - tasteScore_i = Φ((c_i − μ) / σ), Φ(z) = 0.5 × (1 + erf(z / √2))
+    - σ = 0 (후보 1개, 모두 같은 값) 이거나 u 가 0 벡터면 모든 후보 0.5
+  - colorScore = max(0, 1 − ΔE / 50) — ΔE 는 상품 color_lab 과 팔레트(`shared.color.palette_lab(season)`) 중 가장 가까운 색의 거리(`shared.color.delta_e`)
   - score = 0.7 × tasteScore + 0.3 × colorScore
-  - reasonTags: {생성 방법 미정}
-  - 폴백(좋아요 < 3): {미정 — "인기 상품" 기준이 데이터에 없음}
+  - 정렬: score 내림차순, 같으면 product.id 오름차순
+  - 폴백(좋아요 < 3): tasteScore 를 계산하지 않는다. tasteScore = 0, score = colorScore, isFallback = true. 후보·정렬 규칙은 같다
+  - 한글명 (태그 공통)
+    - Style: MINIMAL 미니멀 / CASUAL 캐주얼 / STREET 스트릿 / FORMAL 포멀 / LOVELY 러블리
+    - Season: SPRING_WARM 봄 웜톤 / SUMMER_COOL 여름 쿨톤 / AUTUMN_WARM 가을 웜톤 / WINTER_COOL 겨울 쿨톤
+  - styleTags (규칙 기반):
+    - 선호 스타일 = 좋아요한 상품들의 style 을 빈도순으로 최대 2개 (빈도가 같으면 Style enum 정의 순서)
+    - styleTags = [선호 스타일 한글명…, 시즌 한글명] — 마지막은 항상 시즌명. 좋아요가 없으면 [시즌명] 1개
+  - reasonTags (규칙 기반, 상품마다 최대 2개, 이 순서):
+    1. 상품 style 이 선호 스타일에 있으면 `"선호하는 {스타일}"` (예: "선호하는 미니멀")
+    2. colorScore ≥ 0.7 이면 `"{시즌} 컬러"` (예: "가을 웜톤 컬러")
+    3. 1·2 가 모두 없으면 `"{스타일} 스타일"` (예: "캐주얼 스타일")
 
 ## 상하류
 - 상류: 옷장 사진 화면(업로드 또는 건너뛰기) 후 이동해 옴
@@ -63,7 +76,7 @@
 - 조립: main.py 한 줄, App.tsx 에 `ROUTES.recommendation` (RequireAuth)
 
 ## UI 결과
-- 상단: 취향 요약(styleTags) + 시즌 + 팔레트 칩. isFallback 이면 "취향 데이터가 적어 인기 상품을 보여드려요" 류 안내
+- 상단: 취향 요약(styleTags) + 시즌 + 팔레트 칩. isFallback 이면 "취향 데이터가 적어 퍼스널컬러에 어울리는 상품을 보여드려요" 안내
 - 카드 5개: 이미지, 상품명, 가격(원), 쇼핑몰, reasonTags, "입어보기", "구매하러 가기"
 - 필요 상태: 로딩 / items 0개 빈 상태 / PROFILE_REQUIRED·PERSONAL_COLOR_REQUIRED 시 해당 화면으로 안내 / 에러
 
