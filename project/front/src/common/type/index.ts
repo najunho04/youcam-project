@@ -144,6 +144,7 @@ export interface FittingCreateRequest {
 export interface FittingDto {
   id: number
   productId: number
+  product: ProductDto // 피팅 화면의 상품 정보(이름·가격·구매 링크)
   status: FittingStatus
   originalImageUrl: string
   resultImageUrl: string | null

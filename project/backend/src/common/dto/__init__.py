@@ -122,6 +122,7 @@ class FittingCreateRequest(CamelModel):
 class FittingDto(CamelModel):
     id: int
     product_id: int
+    product: ProductDto  # 피팅 화면의 상품 정보(이름·가격·구매 링크)
     status: FittingStatus
     original_image_url: str
     result_image_url: str | None
