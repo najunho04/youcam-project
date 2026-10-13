@@ -1,6 +1,7 @@
 // 라우터 조립 지점. 슬라이스는 아래 '슬라이스 라우트' 구역에 자기 페이지 한 줄씩만 추가한다.
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { LandingPage, LoginPage, SignupPage } from '../feature/auth'
+import { FittingPage } from '../feature/fitting'
 import { PersonalColorPage } from '../feature/personal_color'
 import { ProfilePage } from '../feature/profile'
 import { RecommendationPage } from '../feature/recommendation'
@@ -31,6 +32,7 @@ export function App() {
         <Route path={ROUTES.personalColor} element={<RequireAuth><PersonalColorPage /></RequireAuth>} />
         <Route path={ROUTES.swipe} element={<RequireAuth><SwipePage /></RequireAuth>} />
         <Route path={ROUTES.recommendation} element={<RequireAuth><RecommendationPage /></RequireAuth>} />
+        <Route path={ROUTES.fittingPattern} element={<RequireAuth><FittingPage /></RequireAuth>} />
         {/* ---- 슬라이스 라우트 끝 ---- */}
         <Route path="*" element={<NotReadyPage />} />
       </Routes>
