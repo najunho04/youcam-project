@@ -1,0 +1,55 @@
+/* recommendation 슬라이스 전용: 취향 요약 · 추천 카드 */
+.recommendation-summary { display: flex; flex-wrap: wrap; gap: 14px 40px; padding: 18px 24px; border-radius: var(--radius-large); background: var(--color-surface); }
+.recommendation-summary-row { display: flex; align-items: center; gap: 12px; }
+.recommendation-summary-row .eyebrow { flex-shrink: 0; }
+.recommendation-palette { display: flex; flex-wrap: wrap; margin: 0; padding: 0 0 0 6px; list-style: none; }
+.recommendation-palette li { width: 24px; height: 24px; margin-left: -6px; border-radius: 50%; box-shadow: 0 0 0 2px var(--color-surface); }
+
+.recommendation-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.recommendation-card {
+  display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+  border-radius: var(--radius-large); background: var(--color-surface);
+  transition: transform 250ms var(--ease-out), box-shadow 250ms var(--ease-out);
+  animation: recommendation-card-in 480ms var(--ease-out) both;
+}
+@media (hover: hover) { .recommendation-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-large); } }
+.recommendation-card:nth-child(2) { animation-delay: 60ms; } .recommendation-card:nth-child(3) { animation-delay: 120ms; }
+.recommendation-card:nth-child(4) { animation-delay: 180ms; } .recommendation-card:nth-child(n + 5) { animation-delay: 240ms; }
+@keyframes recommendation-card-in { from { opacity: 0; translate: 0 12px; } }
+/* 1위: 두 칸을 차지하는 가로 카드 */
+.recommendation-card.is-featured { grid-column: span 2; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.recommendation-card-image { position: relative; background: var(--color-surface-secondary); }
+.recommendation-card-image img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.recommendation-card.is-featured .recommendation-card-image img { height: 100%; }
+.recommendation-card-rank {
+  position: absolute; left: 12px; top: 12px; height: 26px; padding: 0 10px; border-radius: 999px;
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--color-text);
+  background: var(--color-chrome); -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+}
+
+.recommendation-card-body { min-width: 0; padding: 16px 18px 18px; display: grid; gap: 10px; align-content: start; }
+.recommendation-card.is-featured .recommendation-card-body { padding: 28px; gap: 14px; align-content: center; }
+.recommendation-card-mall { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-muted); }
+.recommendation-card-title { margin: 0; font-size: 16px; line-height: 1.3; letter-spacing: -0.01em; font-weight: 600; }
+.recommendation-card.is-featured .recommendation-card-title { font-size: clamp(1.25rem, 2vw, 1.625rem); line-height: 1.2; letter-spacing: -0.02em; }
+.recommendation-card:not(.is-featured) .price { font-size: 17px; }
+.recommendation-card.is-featured .price { font-size: 24px; }
+.recommendation-card:not(.is-featured) .recommendation-card-body .button-row { margin-top: auto; }
+
+@media (max-width: 1023px) {
+  .recommendation-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .recommendation-summary { display: grid; padding: 18px; }
+  .recommendation-summary-row { justify-content: space-between; }
+  .recommendation-list { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .recommendation-card.is-featured { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
+  .recommendation-card.is-featured .recommendation-card-image img { aspect-ratio: 4 / 3; height: auto; }
+  .recommendation-card.is-featured .recommendation-card-body { padding: 16px; }
+  .recommendation-card:not(.is-featured) { grid-template-rows: none; grid-template-columns: 112px minmax(0, 1fr); }
+  .recommendation-card:not(.is-featured) .recommendation-card-image img { height: 100%; aspect-ratio: auto; min-height: 140px; }
+  .recommendation-card:not(.is-featured) .recommendation-card-body { padding: 12px 14px 14px; gap: 8px; }
+  .recommendation-card:not(.is-featured) .button-row { grid-template-columns: auto auto; justify-content: start; }
+  .recommendation-card:not(.is-featured) .button-small { min-height: 34px; font-size: 13px; padding: 0 12px; }
+}

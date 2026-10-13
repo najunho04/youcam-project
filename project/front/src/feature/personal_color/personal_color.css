@@ -1,0 +1,42 @@
+/* personal_color 슬라이스 전용: 사진 슬롯 · 시즌 결과 카드 · 팔레트 */
+.photo-slot-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.photo-slot { display: grid; gap: 16px; align-content: start; padding: 16px; border-radius: var(--radius-large); background: var(--color-surface); }
+.photo-slot-thumbnail { width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: var(--radius-medium); display: grid; place-items: center; overflow: hidden; border: 1.5px dashed var(--color-faint); color: var(--color-faint); font-size: 28px; }
+.photo-slot-thumbnail.is-filled { border: 0; }
+.photo-slot-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.photo-slot-body { display: grid; gap: 4px; justify-items: start; }
+.photo-slot-picker { width: auto; margin-top: 6px; position: relative; }
+.photo-slot-picker:has(input:disabled) { opacity: 0.35; pointer-events: none; }
+.photo-slot-picker:has(input:focus-visible) { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+
+.season-card { position: relative; min-height: 320px; padding: 32px; border-radius: var(--radius-large); overflow: hidden; color: #2a1d14; display: grid; align-content: start; gap: 2px; }
+.season-card-spring { background: linear-gradient(140deg, #fde8cf 0%, #f7c59f 55%, #f08f74 100%); }
+.season-card-summer { background: linear-gradient(140deg, #eef1fb 0%, #c9d4ef 55%, #a9a5d6 100%); color: #1f2340; }
+.season-card-autumn { background: linear-gradient(140deg, #f3dcc2 0%, #e2b78f 55%, #c98b5e 100%); color: #3b2414; }
+.season-card-winter { background: linear-gradient(140deg, #e6e9f2 0%, #8e9bc4 55%, #3d4a7a 100%); color: #0f1530; }
+.season-card-face { position: absolute; right: 24px; bottom: 24px; width: 112px; height: 140px; object-fit: cover; border-radius: 14px; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55); }
+.season-card-kicker { margin: 0; font-size: 13px; font-weight: 600; opacity: 0.7; }
+.season-card-name { margin: 0; font-size: clamp(2.5rem, 5vw, 3.5rem); line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; }
+.season-card-description { margin: 6px 0 0; max-width: calc(100% - 140px); font-size: 16px; opacity: 0.8; }
+
+.palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.palette-grid li { aspect-ratio: 1; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); animation: palette-in 420ms var(--ease-spring) both; }
+.palette-grid li:nth-child(2) { animation-delay: 40ms; } .palette-grid li:nth-child(3) { animation-delay: 80ms; }
+.palette-grid li:nth-child(4) { animation-delay: 120ms; } .palette-grid li:nth-child(5) { animation-delay: 160ms; }
+.palette-grid li:nth-child(6) { animation-delay: 200ms; } .palette-grid li:nth-child(n + 7) { animation-delay: 240ms; }
+@keyframes palette-in { from { opacity: 0; transform: scale(0.6); } }
+
+.personal-color-result { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.personal-color-palette { display: grid; gap: 16px; padding-top: 8px; }
+.personal-color-palette .palette-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+
+@media (max-width: 767px) {
+  .photo-slot-list { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .photo-slot { grid-template-columns: 96px 1fr; align-items: center; gap: 14px; padding: 12px; border-radius: var(--radius-medium); }
+  .photo-slot-thumbnail { width: 96px; height: 120px; aspect-ratio: auto; border-radius: 12px; }
+  .personal-color-result { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .season-card { min-height: 168px; padding: 22px; }
+  .season-card-face { top: 16px; right: 16px; bottom: auto; width: 72px; height: 88px; }
+  .season-card-name { font-size: 40px; }
+  .season-card-description { max-width: calc(100% - 96px); font-size: 14px; }
+}

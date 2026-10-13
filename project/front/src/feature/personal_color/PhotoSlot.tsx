@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { ChangeEvent } from 'react'
 
-/** 사진 1칸: 가이드 + 파일 선택/촬영 + 미리보기. */
+/** 사진 1칸: 미리보기 썸네일 + 가이드 + 파일 선택/촬영 버튼. */
 export function PhotoSlot({
   label,
   guide,
@@ -28,20 +28,25 @@ export function PhotoSlot({
   }
 
   return (
-    <section style={{ display: 'grid', gap: 8 }}>
-      <h2>{label}</h2>
-      <p>{guide}</p>
-      <label style={{ display: 'grid', gap: 8 }}>
-        {`${label} 선택`}
-        <input type="file" accept="image/*" capture="user" disabled={disabled} onChange={handleFileChange} />
-      </label>
-      {previewUrl && (
-        <img
-          src={previewUrl}
-          alt={`${label} 미리보기`}
-          style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover' }}
-        />
-      )}
+    <section className="photo-slot">
+      <div className={`photo-slot-thumbnail${previewUrl ? ' is-filled' : ''}`}>
+        {previewUrl ? <img src={previewUrl} alt={`${label} 미리보기`} /> : <span aria-hidden="true">＋</span>}
+      </div>
+      <div className="photo-slot-body">
+        <h2 className="headline">{label}</h2>
+        <p className="footnote">{guide}</p>
+        <label className={`button ${previewUrl ? 'button-secondary' : 'button-tinted'} button-small photo-slot-picker`}>
+          {`${label} 선택`}
+          <input
+            type="file"
+            accept="image/*"
+            capture="user"
+            className="visually-hidden"
+            disabled={disabled}
+            onChange={handleFileChange}
+          />
+        </label>
+      </div>
     </section>
   )
 }

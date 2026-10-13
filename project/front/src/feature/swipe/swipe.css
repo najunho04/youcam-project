@@ -1,0 +1,52 @@
+/* swipe 슬라이스 전용: 카드 덱 · 날아가는 카드 · 원형 버튼 */
+.swipe-deck {
+  position: relative; margin: 4px auto 0;
+  width: min(100%, 420px, calc((100dvh - 330px) * 0.75)); aspect-ratio: 3 / 4;
+  touch-action: none;
+}
+.swipe-card {
+  position: absolute; inset: 0; overflow: hidden;
+  border-radius: var(--radius-large); background: var(--color-surface); box-shadow: var(--shadow-large);
+  touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+  will-change: transform;
+  /* 놓았을 때: 살짝 튕기며 원위치 (드래그 중에는 1:1 이라 전환 없음) */
+  transition: transform 420ms var(--ease-spring);
+  animation: swipe-card-enter 260ms var(--ease-out);
+}
+.swipe-card img { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.swipe-card.is-dragging { transition: none; cursor: grabbing; }
+@keyframes swipe-card-enter { from { scale: 0.97; } }
+
+.swipe-card-under { box-shadow: var(--shadow-small); transition: transform 200ms var(--ease-out); animation: none; pointer-events: none; }
+.swipe-card-exiting {
+  pointer-events: none; transition: none;
+  animation: swipe-card-exit 320ms cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
+}
+@keyframes swipe-card-exit {
+  from { transform: translateX(var(--exit-from-x)) rotate(var(--exit-from-rotation)); }
+  to { transform: translateX(calc(var(--exit-direction) * 160%)) rotate(calc(var(--exit-direction) * 24deg)); opacity: 0.4; }
+}
+
+.swipe-stamp {
+  position: absolute; top: 22px; padding: 2px 12px; border: 3px solid currentColor; border-radius: 10px;
+  font-size: 24px; font-weight: 800; letter-spacing: 0.02em; background: rgba(255, 255, 255, 0.75); pointer-events: none;
+}
+.swipe-stamp-like { left: 20px; color: var(--color-like); transform: rotate(-12deg); }
+.swipe-stamp-nope { right: 20px; color: var(--color-nope); transform: rotate(12deg); }
+
+.swipe-actions { display: flex; justify-content: center; gap: 28px; padding-top: 8px; }
+.swipe-round-button {
+  width: 64px; height: 64px; border: 0; border-radius: 50%; cursor: pointer;
+  display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-large);
+  transition: transform 100ms ease-out; -webkit-tap-highlight-color: transparent;
+}
+.swipe-round-button:active { transform: scale(0.9); }
+.swipe-round-button:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+.swipe-round-button svg { width: 26px; height: 26px; }
+.swipe-hint { text-align: center; }
+.swipe-hint kbd { display: inline-grid; place-items: center; min-width: 22px; height: 20px; margin: 0 2px; padding: 0 4px; border-radius: 5px; background: var(--color-surface); box-shadow: inset 0 -1px 0 var(--color-border), 0 0 0 1px var(--color-border); font: inherit; font-size: 12px; }
+@media (hover: none) { .swipe-hint-keyboard { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-card-exiting { display: none; }
+}

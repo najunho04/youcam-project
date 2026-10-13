@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ErrorCode } from '../../common/type'
 import type { SwipeAnswer, SwipeCardDto } from '../../common/type'
@@ -6,10 +7,14 @@ import { ApiError } from '../../shared/api'
 import { ROUTES } from '../../shared/navigation'
 import { Button, EmptyState, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
 import { fetchSwipeCards, submitSwipeAnswers } from './api'
-import { SwipeCard } from './SwipeCard'
+import { SwipeCard, rotationOf } from './SwipeCard'
+import './swipe.css'
 
 const CARD_COUNT = 20
 const PAGE_TITLE = '취향 스와이프'
+
+/** 답한 뒤 화면 밖으로 날아가는 직전 카드 (장식용, 보조기술에서 숨김). */
+type ExitingCard = { card: SwipeCardDto; liked: boolean; releaseOffsetX: number; sequence: number }
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '요청에 실패했습니다'
@@ -32,6 +37,8 @@ export function SwipePage() {
   const [answers, setAnswers] = useState<SwipeAnswer[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null)
+  const [exitingCard, setExitingCard] = useState<ExitingCard | null>(null)
+  const [dragProgress, setDragProgress] = useState(0)
 
   useEffect(() => {
     let isCancelled = false
@@ -71,13 +78,31 @@ export function SwipePage() {
     }
   }
 
+  // 데스크톱: ← 싫어요 · → 좋아요
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      if (event.key === 'ArrowLeft') handleAnswerRef.current(false)
+      if (event.key === 'ArrowRight') handleAnswerRef.current(true)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   /** 버튼과 드래그가 함께 쓰는 답변 처리. 마지막 카드면 자동 제출한다. */
-  function handleAnswer(liked: boolean) {
+  function handleAnswer(liked: boolean, releaseOffsetX = 0) {
     if (cards === null || answers.length >= cards.length) return
-    const nextAnswers = [...answers, { productId: cards[answers.length].productId, liked }]
+    const answeredCard = cards[answers.length]
+    const nextAnswers = [...answers, { productId: answeredCard.productId, liked }]
     setAnswers(nextAnswers)
+    setDragProgress(0)
+    setExitingCard({ card: answeredCard, liked, releaseOffsetX, sequence: nextAnswers.length })
     if (nextAnswers.length === cards.length) void submit(nextAnswers)
   }
+  const handleAnswerRef = useRef(handleAnswer)
+  useEffect(() => {
+    handleAnswerRef.current = handleAnswer
+  })
 
   if (loadError !== null) {
     return (
@@ -120,18 +145,60 @@ export function SwipePage() {
   }
 
   const currentCard = cards[answers.length]
+  const nextCard = cards[answers.length + 1]
+  const underCardScale = 0.94 + 0.06 * dragProgress
   return (
-    <PageLayout title={PAGE_TITLE}>
-      <p style={{ margin: 0, textAlign: 'center', color: 'var(--color-muted)' }}>
-        {`${answers.length + 1} / ${cards.length}`}
-      </p>
-      <SwipeCard key={currentCard.productId} card={currentCard} onAnswer={handleAnswer} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Button variant="secondary" onClick={() => handleAnswer(false)}>
-          싫어요
-        </Button>
-        <Button onClick={() => handleAnswer(true)}>좋아요</Button>
+    <PageLayout step={{ current: answers.length + 1, total: cards.length }}>
+      <h1 className="visually-hidden">{PAGE_TITLE}</h1>
+      <div className="swipe-deck">
+        {nextCard && (
+          <div
+            className="swipe-card swipe-card-under"
+            aria-hidden="true"
+            style={{ transform: `translateY(${14 * (1 - dragProgress)}px) scale(${underCardScale})` }}
+          >
+            <img src={nextCard.imageUrl} alt="" draggable={false} />
+          </div>
+        )}
+        <SwipeCard key={currentCard.productId} card={currentCard} onAnswer={handleAnswer} onDragProgress={setDragProgress} />
+        {exitingCard && (
+          <div
+            key={exitingCard.sequence}
+            className="swipe-card swipe-card-exiting"
+            aria-hidden="true"
+            onAnimationEnd={() => setExitingCard(null)}
+            style={
+              {
+                '--exit-from-x': `${exitingCard.releaseOffsetX}px`,
+                '--exit-from-rotation': `${rotationOf(exitingCard.releaseOffsetX)}deg`,
+                '--exit-direction': exitingCard.liked ? 1 : -1,
+              } as CSSProperties
+            }
+          >
+            <img src={exitingCard.card.imageUrl} alt="" draggable={false} />
+          </div>
+        )}
       </div>
+      <div className="swipe-actions">
+        <button type="button" className="swipe-round-button" aria-label="싫어요" onClick={() => handleAnswer(false)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--color-nope)" strokeWidth="2.6" strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+        <button type="button" className="swipe-round-button" aria-label="좋아요" onClick={() => handleAnswer(true)}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="var(--color-like)">
+            <path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.4h2c.7-1.2 2.2-2.4 4.3-2.4 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" />
+          </svg>
+        </button>
+      </div>
+      <p className="footnote swipe-hint">
+        카드를 좌우로 밀거나 버튼을 눌러요
+        <span className="swipe-hint-keyboard">
+          {' · 키보드 '}
+          <kbd>←</kbd>
+          <kbd>→</kbd>
+        </span>
+      </p>
     </PageLayout>
   )
 }

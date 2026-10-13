@@ -4,10 +4,17 @@ import type { UserDto } from '../../common/type'
 import { ApiError } from '../../shared/api'
 import { tokenStorage } from '../../shared/auth'
 import { ROUTES } from '../../shared/navigation'
-import { Button, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
+import { Button, ErrorMessage, Loading, PageLayout, buttonClassName } from '../../shared/ui'
+import './auth.css'
 import { fetchMe } from './api'
 
 const SERVICE_INTRODUCTION = '퍼스널 컬러와 취향으로 나에게 맞는 옷을 추천해 드려요'
+
+const LANDING_STEPS = [
+  { icon: '📷', title: '사진 두 장', description: '퍼스널컬러 진단' },
+  { icon: '👆', title: '스와이프 20번', description: '내 취향 분석' },
+  { icon: '👕', title: '추천 상의 입어보기', description: '바로 구매까지' },
+]
 
 /** 이어하기 이동 규칙: 프로필 → 퍼스널 컬러 → 추천 순으로 비어 있는 단계로 보낸다. */
 function getContinueRoute(user: UserDto): string {
@@ -27,13 +34,43 @@ export function LandingPage() {
   }
 
   return (
-    <PageLayout title="ColorFit">
-      <p>{SERVICE_INTRODUCTION}</p>
-      {isLoggedIn ? (
-        <LoggedInSection onLogout={handleLogout} onUnauthorized={handleUnauthorized} />
-      ) : (
-        <LoggedOutSection />
-      )}
+    <PageLayout width="wide">
+      <div className="landing">
+        <div className="landing-hero" aria-hidden="true">
+          <span className="landing-orb landing-orb-warm" />
+          <span className="landing-orb landing-orb-cool" />
+          <span className="landing-orb landing-orb-olive" />
+          <span className="landing-orb landing-orb-rose" />
+        </div>
+        <div className="landing-copy">
+          <h1 className="landing-display">
+            나에게 어울리고,
+            <br />
+            내 취향인 옷.
+          </h1>
+          <p className="page-lede landing-lede">{SERVICE_INTRODUCTION}</p>
+          <ol className="landing-steps">
+            {LANDING_STEPS.map((step) => (
+              <li key={step.title}>
+                <span className="landing-step-icon" aria-hidden="true">
+                  {step.icon}
+                </span>
+                <span>
+                  {step.title}
+                  <small>{step.description}</small>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="landing-actions">
+            {isLoggedIn ? (
+              <LoggedInSection onLogout={handleLogout} onUnauthorized={handleUnauthorized} />
+            ) : (
+              <LoggedOutSection />
+            )}
+          </div>
+        </div>
+      </div>
     </PageLayout>
   )
 }
@@ -41,12 +78,12 @@ export function LandingPage() {
 function LoggedOutSection() {
   return (
     <>
-      <Link to={ROUTES.signup} className="button button-primary" style={{ textAlign: 'center', textDecoration: 'none' }}>
+      <Link to={ROUTES.signup} className={buttonClassName('primary')}>
         시작하기
       </Link>
-      <Link to={ROUTES.login} style={{ textAlign: 'center' }}>
-        로그인
-      </Link>
+      <p className="landing-login">
+        이미 계정이 있나요? <Link to={ROUTES.login}>로그인</Link>
+      </p>
     </>
   )
 }
@@ -84,7 +121,7 @@ function LoggedInSection({ onLogout, onUnauthorized }: { onLogout: () => void; o
       {errorMessage ? (
         <ErrorMessage message={errorMessage} onRetry={handleRetry} />
       ) : user ? (
-        <p>{user.nickname} 님, 반가워요</p>
+        <p className="headline landing-greeting">{user.nickname} 님, 반가워요</p>
       ) : (
         <Loading />
       )}

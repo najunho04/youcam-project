@@ -4,11 +4,13 @@ import { ErrorCode, Season } from '../../common/type'
 import type { RecommendationResponse } from '../../common/type'
 import { ApiError } from '../../shared/api'
 import { ROUTES } from '../../shared/navigation'
-import { Button, EmptyState, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
+import { Button, EmptyState, ErrorMessage, Loading, Notice, PageLayout } from '../../shared/ui'
 import { fetchRecommendations } from './api'
 import { RecommendationCard } from './RecommendationCard'
+import './recommendation.css'
 
 const PAGE_TITLE = '추천 상의'
+const PAGE_LEDE = '취향과 퍼스널컬러를 함께 봤어요.'
 const FALLBACK_NOTICE = '취향 데이터가 적어 퍼스널컬러에 어울리는 상품을 보여드려요'
 
 const SEASON_NAMES: Record<Season, string> = {
@@ -23,8 +25,6 @@ const REQUIRED_STEP_BY_ERROR_CODE: Partial<Record<ErrorCode, { route: string; la
   [ErrorCode.PROFILE_REQUIRED]: { route: ROUTES.profile, label: '프로필 입력하기' },
   [ErrorCode.PERSONAL_COLOR_REQUIRED]: { route: ROUTES.personalColor, label: '퍼스널컬러 진단하기' },
 }
-
-const chipListStyle = { display: 'flex', flexWrap: 'wrap', gap: 8, padding: 0, margin: 0, listStyle: 'none' } as const
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : '요청에 실패했습니다'
@@ -41,28 +41,29 @@ function requiredStepOf(error: unknown) {
 function RecommendationSummary({ recommendation }: { recommendation: RecommendationResponse }) {
   const seasonName = SEASON_NAMES[recommendation.season]
   return (
-    <section style={{ display: 'grid', gap: 12 }}>
-      <ul aria-label="취향 요약" style={chipListStyle}>
-        {recommendation.styleTags.map((styleTag) => (
-          <li
-            key={styleTag}
-            style={{ padding: '6px 12px', borderRadius: 999, background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}
-          >
-            {styleTag}
-          </li>
-        ))}
-      </ul>
-      <ul aria-label={`${seasonName} 팔레트`} style={chipListStyle}>
-        {recommendation.palette.map((hexColor) => (
-          <li
-            key={hexColor}
-            title={hexColor}
-            style={{ width: 28, height: 28, borderRadius: '50%', background: hexColor, border: '1px solid var(--color-border)' }}
-          />
-        ))}
-      </ul>
-      {recommendation.isFallback && <p style={{ margin: 0, color: 'var(--color-muted)' }}>{FALLBACK_NOTICE}</p>}
-    </section>
+    <>
+      <section className="recommendation-summary">
+        <div className="recommendation-summary-row">
+          <p className="eyebrow">선호 스타일</p>
+          <ul aria-label="취향 요약" className="chip-list">
+            {recommendation.styleTags.map((styleTag) => (
+              <li key={styleTag} className="chip">
+                {styleTag}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="recommendation-summary-row">
+          <p className="eyebrow">{seasonName}</p>
+          <ul aria-label={`${seasonName} 팔레트`} className="recommendation-palette">
+            {recommendation.palette.map((hexColor) => (
+              <li key={hexColor} title={hexColor} style={{ background: hexColor }} />
+            ))}
+          </ul>
+        </div>
+      </section>
+      {recommendation.isFallback && <Notice>{FALLBACK_NOTICE}</Notice>}
+    </>
   )
 }
 
@@ -98,7 +99,7 @@ export function RecommendationPage() {
   if (loadError !== null) {
     const requiredStep = requiredStepOf(loadError)
     return (
-      <PageLayout title={PAGE_TITLE}>
+      <PageLayout width="wide" title={PAGE_TITLE} lede={PAGE_LEDE}>
         {requiredStep ? (
           <>
             <EmptyState message={toErrorMessage(loadError)} />
@@ -113,25 +114,30 @@ export function RecommendationPage() {
 
   if (recommendation === null) {
     return (
-      <PageLayout title={PAGE_TITLE}>
+      <PageLayout width="wide" title={PAGE_TITLE} lede={PAGE_LEDE}>
         <Loading />
       </PageLayout>
     )
   }
 
   return (
-    <PageLayout title={PAGE_TITLE}>
+    <PageLayout width="wide" title={PAGE_TITLE} lede={PAGE_LEDE}>
       <RecommendationSummary recommendation={recommendation} />
       {recommendation.items.length === 0 ? (
         <EmptyState message="추천할 상품이 아직 없어요" />
       ) : (
-        recommendation.items.map((item) => (
-          <RecommendationCard
-            key={item.product.id}
-            item={item}
-            onTryOn={() => navigate(ROUTES.fitting(item.product.id))}
-          />
-        ))
+        <div className="recommendation-list">
+          {recommendation.items.map((item, index) => (
+            <RecommendationCard
+              key={item.product.id}
+              item={item}
+              rank={index + 1}
+              isFeatured={index === 0}
+              highlightedReason={SEASON_NAMES[recommendation.season]}
+              onTryOn={() => navigate(ROUTES.fitting(item.product.id))}
+            />
+          ))}
+        </div>
       )}
     </PageLayout>
   )

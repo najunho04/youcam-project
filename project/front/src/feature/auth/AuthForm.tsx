@@ -42,40 +42,46 @@ export function AuthForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12 }}>
-      <label style={{ display: 'grid', gap: 4 }}>
-        닉네임
-        <input
-          name="nickname"
-          value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
-          minLength={2}
-          maxLength={20}
-          required
-          autoComplete="username"
-        />
-      </label>
-      <label style={{ display: 'grid', gap: 4 }}>
-        비밀번호
-        <input
-          name="password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          minLength={4}
-          maxLength={72}
-          required
-          autoComplete="current-password"
-        />
-      </label>
+    <form onSubmit={handleSubmit} className="auth-form">
+      <div>
+        <div className="grouped-list">
+          <label className="grouped-field">
+            <span>닉네임</span>
+            <input
+              name="nickname"
+              value={nickname}
+              onChange={(event) => setNickname(event.target.value)}
+              minLength={2}
+              maxLength={20}
+              required
+              autoComplete="username"
+              placeholder="2~20자"
+            />
+          </label>
+          <label className="grouped-field">
+            <span>비밀번호</span>
+            <input
+              name="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={4}
+              maxLength={72}
+              required
+              autoComplete="current-password"
+              placeholder="4자 이상"
+            />
+          </label>
+        </div>
+        {errorMessage && (
+          <p role="alert" className="auth-form-error">
+            {errorMessage}
+          </p>
+        )}
+      </div>
       <Button type="submit" disabled={isSubmitting}>
         {submitLabel}
       </Button>
-      {errorMessage && (
-        <p role="alert" style={{ color: 'var(--color-error)', margin: 0 }}>
-          {errorMessage}
-        </p>
-      )}
     </form>
   )
 }

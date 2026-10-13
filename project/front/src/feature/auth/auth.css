@@ -1,0 +1,32 @@
+/* auth 슬라이스 전용: 랜딩 · 가입/로그인 폼 */
+.landing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; min-height: calc(100dvh - 56px - 104px); }
+.landing-copy { display: grid; gap: 20px; align-content: center; order: -1; }
+.landing-hero { position: relative; aspect-ratio: 1; width: 100%; max-width: 520px; justify-self: end; }
+.landing-orb { position: absolute; border-radius: 50%; animation: landing-float 9s var(--ease-out) infinite alternate; }
+.landing-orb-warm { width: 58%; height: 58%; left: 2%; top: 14%; background: radial-gradient(circle at 35% 35%, #f6d2b4, #d98f63); }
+.landing-orb-cool { width: 44%; height: 44%; right: 2%; top: 2%; background: radial-gradient(circle at 35% 35%, #c9dcf5, #6d8fc7); animation-delay: -3s; }
+.landing-orb-olive { width: 40%; height: 40%; right: 10%; bottom: 8%; background: radial-gradient(circle at 35% 35%, #d6e3c4, #7f9a62); animation-delay: -6s; }
+.landing-orb-rose { width: 26%; height: 26%; left: 40%; top: 6%; background: radial-gradient(circle at 35% 35%, #f1cfe6, #b878a5); animation-delay: -1.5s; }
+@keyframes landing-float { to { transform: translate3d(0, 12px, 0) scale(1.03); } }
+.landing-display { margin: 0; font-size: clamp(2.5rem, 5.2vw, 4.25rem); line-height: 1.04; letter-spacing: -0.035em; font-weight: 700; }
+.landing-lede { margin: 0; font-size: clamp(1.0625rem, 1.4vw, 1.25rem); }
+.landing-steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.landing-steps li { display: grid; gap: 10px; align-content: start; padding: 16px; border-radius: var(--radius-medium); background: var(--color-surface); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.landing-steps small { display: block; margin-top: 2px; color: var(--color-muted); font-size: 13px; font-weight: 400; }
+.landing-step-icon { width: 36px; height: 36px; border-radius: 11px; background: var(--color-surface-secondary); display: grid; place-items: center; font-size: 16px; }
+.landing-actions { display: grid; grid-template-columns: minmax(0, 280px); gap: 8px; margin-top: 12px; }
+.landing-login, .auth-switch { margin: 4px 0 0; font-size: 15px; color: var(--color-muted); }
+.auth-switch { text-align: center; }
+.landing-login a, .auth-switch a { font-weight: 600; text-decoration: none; }
+
+.auth-form { display: grid; gap: 20px; }
+.auth-form-error { margin: 8px 16px 0; font-size: 13px; color: var(--color-error); }
+
+@media (max-width: 899px) {
+  .landing { grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; }
+  .landing-hero { order: -2; justify-self: center; max-width: 320px; margin: -12px 0 -24px; }
+  .landing-steps { grid-template-columns: minmax(0, 1fr); }
+  .landing-steps li { grid-template-columns: 36px 1fr; align-items: center; padding: 0; background: transparent; }
+  .landing-actions { grid-template-columns: minmax(0, 1fr); }
+  .landing-login { text-align: center; }
+}
