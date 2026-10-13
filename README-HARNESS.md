@@ -201,9 +201,11 @@ cd /home/najunho/youcam-project && git switch -c slice/{slice}
 
 외부 연동은 `.env`로 모드를 바꾼다 (예시: `project/.env.example`). 테스트는 `conftest.py`가 아래 테스트용 모드로 강제한다.
 
+S3는 비공개 버킷 `youcamapi-hackathon-1013`(ap-northeast-2)을 쓴다. AWS 키는 `.env`에 넣지 않는다. `make dev`는 `~/.aws/credentials`, 배포(EC2)는 인스턴스 롤로 접근한다.
+
 | 항목 | 값 | 개발 | 테스트 | 배포 |
 |---|---|---|---|---|
-| `STORAGE_MODE` | `s3` / `local` / `memory` | local | memory | s3 |
+| `STORAGE_MODE` | `s3` / `local` / `memory` | local (YouCam live 확인 시 s3) | memory | s3 |
 | `YOUCAM_MODE` | `live` / `mock` | mock (크레딧 절약) | mock | live |
 | `EMBEDDING_MODE` | `fashion_clip` / `fake` | fashion_clip | fake | fashion_clip |
 

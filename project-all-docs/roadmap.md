@@ -16,7 +16,8 @@
 
 - [ ] YouCam API 키 · 크레딧 확인, 피부톤 분석 / 의류 피팅 응답 **샘플 저장** (개발 중 목업용)
 - [ ] 네이버 쇼핑 검색 API 키 발급
-- [ ] S3 버킷 + IAM 키 (EC2에선 인스턴스 롤)
+- [x] S3 비공개 버킷 `youcamapi-hackathon-1013` (ap-northeast-2). 로컬은 `~/.aws/credentials`, `.env`에 키 안 넣음
+- [ ] EC2 인스턴스 롤: 위 버킷 `s3:PutObject/GetObject/DeleteObject`
 - [ ] EC2: 임베딩 모델(torch CPU) 때문에 **RAM 4GB 이상** (t3.medium 이상)
 
 ## 컷 라인 (시간 부족 시 이 순서로 버림)
