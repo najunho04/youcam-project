@@ -2,14 +2,14 @@
 
 > 테이블, 관계, 제약. 사람용. 세션에는 슬라이스 카드의 "스키마 발췌"로만 전달한다.
 
-해커톤 최소 설계: **테이블 5개.** 취향 벡터·추천 결과·팔레트는 저장하지 않는다(요청 시 계산 / 코드 상수).
+해커톤 최소 설계: **테이블 7개.** 취향 벡터·추천 결과·팔레트는 저장하지 않는다(요청 시 계산 / 코드 상수).
 
 ```mermaid
 erDiagram
   users ||--o{ swipes : makes
   users ||--o{ wardrobe_photos : uploads
   users ||--o{ fittings : requests
-  products ||--o{ swipes : "is swiped"
+  pins ||--o{ swipes : "is swiped"
   products ||--o{ fittings : "is fitted"
 
   users {
@@ -39,9 +39,21 @@ erDiagram
     vector embedding
     timestamptz updated_at
   }
+  pins {
+    bigint id PK
+    text image_url UK
+    varchar gender
+    varchar age_group
+    varchar style
+    vector embedding
+  }
+  embedding_centroids {
+    varchar domain PK
+    vector embedding
+  }
   swipes {
     bigint user_id PK,FK
-    bigint product_id PK,FK
+    bigint pin_id PK,FK
     boolean liked
     timestamptz created_at
   }
@@ -98,11 +110,33 @@ erDiagram
 - 인덱스: `(gender, age_group, category)`. 상품 수천 개 규모라 벡터 인덱스(HNSW)는 생략 — 필터 후 전수 계산으로 충분.
 - 쓰기는 `product_ingest`만. 나머지 슬라이스는 읽기 전용.
 
-### swipes — 좋아요/싫어요
+### pins — 스와이프용 코디 사진 (Pinterest)
+| 컬럼 | 타입 | 제약 |
+|---|---|---|
+| id | bigserial | PK |
+| image_url | text | NOT NULL, UNIQUE. `i.pinimg.com` 원본 URL (이미지는 저장하지 않음) |
+| gender | Gender | NOT NULL |
+| age_group | AgeGroup | NOT NULL |
+| style | Style | NOT NULL (수집 검색어 기준) |
+| embedding | vector(512) | NOT NULL. fashion_clip |
+| created_at | timestamptz | NOT NULL DEFAULT now() |
+
+- 인덱스: `(gender, age_group)`. 개발 전 1회 적재(Playwright 크롤링), 서버는 읽기만.
+
+### embedding_centroids — 출처별 임베딩 평균
+| 컬럼 | 타입 | 제약 |
+|---|---|---|
+| domain | EmbeddingDomain (`PIN` `PRODUCT`) | PK |
+| embedding | vector(512) | NOT NULL. 해당 테이블 전체 embedding 평균 |
+| updated_at | timestamptz | NOT NULL |
+
+- 핀(코디 전신샷)과 상품(상품컷)은 사진 종류가 달라 임베딩에 공통 성분이 생긴다. 추천은 각자 평균을 뺀 뒤 비교한다. 적재할 때 계산.
+
+### swipes — 좋아요/싫어요 (핀 대상)
 | 컬럼 | 타입 | 제약 |
 |---|---|---|
 | user_id | bigint | PK, FK → users.id ON DELETE CASCADE |
-| product_id | bigint | PK, FK → products.id ON DELETE CASCADE |
+| pin_id | bigint | PK, FK → pins.id ON DELETE CASCADE |
 | liked | boolean | NOT NULL |
 | created_at | timestamptz | NOT NULL DEFAULT now() |
 
@@ -131,7 +165,7 @@ erDiagram
 - 사진을 다시 올리면 해당 사용자의 `fittings` 행을 삭제(원본이 바뀌므로 캐시 무효).
 
 ## 저장하지 않는 것
-- 취향 벡터 / 추천 결과: 요청 시 swipes + wardrobe_photos로 계산 (스와이프 20개 평균이라 수 ms)
+- 취향 벡터 / 추천 결과: 요청 시 swipes(핀) + wardrobe_photos + embedding_centroids로 계산 (스와이프 20개 평균이라 수 ms)
 - 시즌별 팔레트, 스타일 태그 텍스트 임베딩: 코드 상수 / 서버 기동 시 1회 계산
 - enum은 DB enum 타입 대신 `varchar` + 애플리케이션 enum (마이그레이션 단순화)
 - 스키마 관리: 해커톤이라 Alembic 없이 `create_all` + 시드. 스키마 변경 시 DB 볼륨 재생성

@@ -13,9 +13,9 @@ const CARD_WIDTH = 300
 
 const cardsResponse: SwipeCardsResponse = {
   cards: [
-    { productId: 11, imageUrl: 'https://image.test/products/11.jpg', style: Style.MINIMAL },
-    { productId: 12, imageUrl: 'https://image.test/products/12.jpg', style: Style.STREET },
-    { productId: 13, imageUrl: 'https://image.test/products/13.jpg', style: Style.LOVELY },
+    { pinId: 11, imageUrl: 'https://image.test/pins/11.jpg', style: Style.MINIMAL },
+    { pinId: 12, imageUrl: 'https://image.test/pins/12.jpg', style: Style.STREET },
+    { pinId: 13, imageUrl: 'https://image.test/pins/13.jpg', style: Style.LOVELY },
   ],
 }
 
@@ -76,7 +76,7 @@ describe('SwipePage', () => {
     respondPending(200, cardsResponse)
 
     expect(await screen.findByText('1 / 3')).toBeInTheDocument()
-    expect(currentImageUrl()).toBe('https://image.test/products/11.jpg')
+    expect(currentImageUrl()).toBe('https://image.test/pins/11.jpg')
     expect(screen.getByRole('button', { name: '좋아요' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '싫어요' })).toBeEnabled()
     expect(fetchMock.mock.calls[0][0]).toBe('/api/swipe/cards?count=20')
@@ -92,7 +92,7 @@ describe('SwipePage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: '좋아요' }))
     expect(screen.getByText('2 / 3')).toBeInTheDocument()
-    expect(currentImageUrl()).toBe('https://image.test/products/12.jpg')
+    expect(currentImageUrl()).toBe('https://image.test/pins/12.jpg')
     expect(fetchMock).toHaveBeenCalledTimes(1) // 중간에는 제출하지 않는다
 
     await userEvent.click(screen.getByRole('button', { name: '싫어요' }))
@@ -102,9 +102,9 @@ describe('SwipePage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(sentAnswers(fetchMock, 1)).toEqual({
       answers: [
-        { productId: 11, liked: true },
-        { productId: 12, liked: false },
-        { productId: 13, liked: true },
+        { pinId: 11, liked: true },
+        { pinId: 12, liked: false },
+        { pinId: 13, liked: true },
       ],
     })
   })
@@ -126,9 +126,9 @@ describe('SwipePage', () => {
     expect(await screen.findByText('옷장 사진 화면')).toBeInTheDocument()
     expect(sentAnswers(fetchMock, 1)).toEqual({
       answers: [
-        { productId: 11, liked: true },
-        { productId: 12, liked: false },
-        { productId: 13, liked: true },
+        { pinId: 11, liked: true },
+        { pinId: 12, liked: false },
+        { pinId: 13, liked: true },
       ],
     })
   })
@@ -147,7 +147,7 @@ describe('SwipePage', () => {
 
     expect(screen.getByText('1 / 3')).toBeInTheDocument()
     expect(currentCard().style.transform).toContain('translateX(0px)')
-    expect(currentImageUrl()).toBe('https://image.test/products/11.jpg')
+    expect(currentImageUrl()).toBe('https://image.test/pins/11.jpg')
   })
 
   it('카드가 0장이면 빈 상태 문구를 보여준다', async () => {
@@ -211,8 +211,8 @@ describe('SwipePage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
     const expectedAnswers = {
       answers: [
-        { productId: 11, liked: false },
-        { productId: 12, liked: true },
+        { pinId: 11, liked: false },
+        { pinId: 12, liked: true },
       ],
     }
     expect(sentAnswers(fetchMock, 1)).toEqual(expectedAnswers)

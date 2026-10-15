@@ -36,3 +36,9 @@ class FittingStatus(StrEnum):
     PENDING = "PENDING"
     DONE = "DONE"
     FAILED = "FAILED"
+
+
+class EmbeddingDomain(StrEnum):
+    """평균 벡터를 따로 두는 임베딩 출처. 핀(코디 사진)과 상품(상품컷)은 사진 종류가 달라 각자 평균을 뺀 뒤 비교한다."""
+    PIN = "PIN"
+    PRODUCT = "PRODUCT"

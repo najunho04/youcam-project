@@ -54,7 +54,7 @@ class ProfileUpdateRequest(CamelModel):
 
 # ---- swipe ----
 class SwipeCardDto(CamelModel):
-    product_id: int
+    pin_id: int
     image_url: str
     style: Style
 
@@ -64,7 +64,7 @@ class SwipeCardsResponse(CamelModel):
 
 
 class SwipeAnswer(CamelModel):
-    product_id: int
+    pin_id: int
     liked: bool
 
 

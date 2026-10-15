@@ -93,7 +93,7 @@ export function SwipePage() {
   function handleAnswer(liked: boolean, releaseOffsetX = 0) {
     if (cards === null || answers.length >= cards.length) return
     const answeredCard = cards[answers.length]
-    const nextAnswers = [...answers, { productId: answeredCard.productId, liked }]
+    const nextAnswers = [...answers, { pinId: answeredCard.pinId, liked }]
     setAnswers(nextAnswers)
     setDragProgress(0)
     setExitingCard({ card: answeredCard, liked, releaseOffsetX, sequence: nextAnswers.length })
@@ -160,7 +160,7 @@ export function SwipePage() {
             <img src={nextCard.imageUrl} alt="" draggable={false} />
           </div>
         )}
-        <SwipeCard key={currentCard.productId} card={currentCard} onAnswer={handleAnswer} onDragProgress={setDragProgress} />
+        <SwipeCard key={currentCard.pinId} card={currentCard} onAnswer={handleAnswer} onDragProgress={setDragProgress} />
         {exitingCard && (
           <div
             key={exitingCard.sequence}

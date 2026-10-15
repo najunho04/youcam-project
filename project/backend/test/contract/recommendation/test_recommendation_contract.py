@@ -4,8 +4,10 @@ GET /api/recommendations (인증 필요)
 - Response 200 RecommendationResponse { styleTags, season, palette, isFallback, items: RecommendationItem[] }
 - RecommendationItem { product: ProductDto, score, tasteScore, colorScore, reasonTags }
 - ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }
-- 후보: gender·age_group 일치 + TOP, 스와이프한 상품 제외
-- u = normalize(mean(L) + 1.5 × mean(C) − 0.5 × mean(D)), tasteScore = Φ((c_i − μ) / σ) (σ = 0 이면 0.5)
+- 스와이프는 핀(코디 사진)에 한다. 후보: gender·age_group 일치 + TOP 상품 전체 (스와이프와 무관)
+- 핀평균 P·상품평균 Q 는 embedding_centroids 에 미리 적재 (없으면 0 벡터)
+- u = normalize(mean(L − P) + 1.5 × mean(C) − 0.5 × mean(D − P)), c_i = cos(u, e_i − Q)
+- tasteScore = Φ((c_i − μ) / σ) (σ = 0 이면 0.5)
 - colorScore = max(0, 1 − ΔE / 50), score = 0.7 × tasteScore + 0.3 × colorScore
 - 정렬 score 내림차순 → product.id 오름차순, 최대 5개
 - 폴백(좋아요 < 3): tasteScore = 0, score = colorScore, isFallback = true
@@ -21,8 +23,8 @@ import jwt
 import numpy as np
 import pytest
 
-from common.entity import EMBEDDING_DIMENSION, Swipe, WardrobePhoto
-from common.enums import AgeGroup, Gender, Season, Style
+from common.entity import EMBEDDING_DIMENSION, EmbeddingCentroid, Swipe, WardrobePhoto
+from common.enums import AgeGroup, EmbeddingDomain, Gender, Season, Style
 from common.error import ErrorCode
 from shared.color import SEASON_PALETTES, delta_e, palette_lab
 from shared.config import get_settings
@@ -70,9 +72,20 @@ def matching_product(create_product, **columns):
     return create_product(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, **columns)
 
 
-def add_swipe(database_session, user_id: int, product_id: int, liked: bool) -> None:
-    database_session.add(Swipe(user_id=user_id, product_id=product_id, liked=liked))
+def matching_pin(create_pin, **columns):
+    return create_pin(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, **columns)
+
+
+def add_swipe(database_session, user_id: int, pin_id: int, liked: bool) -> None:
+    database_session.add(Swipe(user_id=user_id, pin_id=pin_id, liked=liked))
     database_session.commit()
+
+
+def add_centroid(database_session, domain: EmbeddingDomain, embedding: list[float]) -> EmbeddingCentroid:
+    centroid = EmbeddingCentroid(domain=domain, embedding=embedding)
+    database_session.add(centroid)
+    database_session.commit()
+    return centroid
 
 
 def add_wardrobe_photo(database_session, user_id: int, embedding: list[float]) -> WardrobePhoto:
@@ -92,20 +105,20 @@ def mean_or_zero(vectors: list[np.ndarray]) -> np.ndarray:
     return np.mean(vectors, axis=0) if vectors else np.zeros(EMBEDDING_DIMENSION)
 
 
-def expected_taste_vector(liked_products, wardrobe_photos, disliked_products) -> np.ndarray:
+def expected_taste_vector(liked_pins, wardrobe_photos, disliked_pins, pin_centroid: np.ndarray) -> np.ndarray:
     combined = (
-        mean_or_zero([stored_vector(product) for product in liked_products])
+        mean_or_zero([stored_vector(pin) - pin_centroid for pin in liked_pins])
         + 1.5 * mean_or_zero([stored_vector(photo) for photo in wardrobe_photos])
-        - 0.5 * mean_or_zero([stored_vector(product) for product in disliked_products])
+        - 0.5 * mean_or_zero([stored_vector(pin) - pin_centroid for pin in disliked_pins])
     )
     norm = np.linalg.norm(combined)
     return combined if norm == 0 else combined / norm
 
 
-def expected_taste_scores(taste_vector: np.ndarray, candidates) -> dict[int, float]:
+def expected_taste_scores(taste_vector: np.ndarray, candidates, product_centroid: np.ndarray) -> dict[int, float]:
     similarities = {}
     for product in candidates:
-        embedding = stored_vector(product)
+        embedding = stored_vector(product) - product_centroid
         similarities[product.id] = float(np.dot(taste_vector, embedding) / np.linalg.norm(embedding))
     values = np.array(list(similarities.values()))
     mean, standard_deviation = values.mean(), values.std(ddof=0)
@@ -122,9 +135,9 @@ def expected_color_score(product, season: Season) -> float:
     return max(0.0, 1 - nearest_distance / 50)
 
 
-def expected_preferred_styles(liked_products) -> list[Style]:
+def expected_preferred_styles(liked_pins) -> list[Style]:
     style_order = list(Style)
-    frequencies = Counter(product.style for product in liked_products)
+    frequencies = Counter(pin.style for pin in liked_pins)
     ranked = sorted(frequencies, key=lambda style: (-frequencies[style], style_order.index(style)))
     return ranked[:2]
 
@@ -220,26 +233,28 @@ def assert_items_match(actual_items: list[dict], expected_rows: list[dict], prod
 
 
 # ---- 정상: 취향 + 컬러 ----
-def test_recommendations_rank_unswiped_candidates_by_taste_and_color(
-    client, create_user, create_product, auth_headers, database_session
+def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
+    client, create_user, create_product, create_pin, auth_headers, database_session
 ):
     season = Season.AUTUMN_WARM
     base_color = palette_lab(season)[0]
     user = matching_user(create_user, season)
     other_user = matching_user(create_user, Season.WINTER_COOL, nickname="other")
 
-    # 좋아요 4개 (LOVELY 2, CASUAL 1, MINIMAL 1) · 싫어요 1개 · 옷장 사진 1장
-    liked_products = [
-        matching_product(create_product, style=style, embedding=axis_vector((0, 1.0)), color_lab=list(base_color))
+    # 핀평균·상품평균 (축9 = 핀 사진 종류 성분, 축3 = 상품 사진 종류 성분)
+    pin_centroid = add_centroid(database_session, EmbeddingDomain.PIN, axis_vector((9, 1.0), (0, 0.2)))
+    product_centroid = add_centroid(database_session, EmbeddingDomain.PRODUCT, axis_vector((3, 0.3), (8, 1.0)))
+
+    # 핀 좋아요 4개 (LOVELY 2, CASUAL 1, MINIMAL 1) · 핀 싫어요 1개 · 옷장 사진 1장
+    liked_pins = [
+        matching_pin(create_pin, style=style, embedding=axis_vector((0, 1.0), (9, 1.0)))
         for style in (Style.LOVELY, Style.LOVELY, Style.CASUAL, Style.MINIMAL)
     ]
-    disliked_products = [
-        matching_product(create_product, style=Style.STREET, embedding=axis_vector((1, 1.0)), color_lab=list(base_color))
-    ]
-    for product in liked_products:
-        add_swipe(database_session, user.id, product.id, liked=True)
-    for product in disliked_products:
-        add_swipe(database_session, user.id, product.id, liked=False)
+    disliked_pins = [matching_pin(create_pin, style=Style.STREET, embedding=axis_vector((1, 1.0), (9, 1.0)))]
+    for pin in liked_pins:
+        add_swipe(database_session, user.id, pin.id, liked=True)
+    for pin in disliked_pins:
+        add_swipe(database_session, user.id, pin.id, liked=False)
     wardrobe_photos = [add_wardrobe_photo(database_session, user.id, axis_vector((2, 1.0)))]
 
     candidates = [
@@ -258,14 +273,15 @@ def test_recommendations_rank_unswiped_candidates_by_taste_and_color(
         create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
         create_product(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
     ]
-    # 다른 사용자의 스와이프는 이 사용자의 취향·후보에 영향 없음
-    for product in candidates[:3]:
-        add_swipe(database_session, other_user.id, product.id, liked=False)
+    # 다른 사용자의 스와이프·옷장은 이 사용자의 취향에 영향 없음
+    other_pin = matching_pin(create_pin, style=Style.FORMAL, embedding=axis_vector((2, 1.0)))
+    add_swipe(database_session, other_user.id, other_pin.id, liked=True)
     add_wardrobe_photo(database_session, other_user.id, axis_vector((1, 1.0)))
 
-    preferred_styles = expected_preferred_styles(liked_products)
-    taste_vector = expected_taste_vector(liked_products, wardrobe_photos, disliked_products)
-    expected_rows = expected_items(candidates, season, preferred_styles, expected_taste_scores(taste_vector, candidates))
+    preferred_styles = expected_preferred_styles(liked_pins)
+    taste_vector = expected_taste_vector(liked_pins, wardrobe_photos, disliked_pins, stored_vector(pin_centroid))
+    taste_scores = expected_taste_scores(taste_vector, candidates, stored_vector(product_centroid))
+    expected_rows = expected_items(candidates, season, preferred_styles, taste_scores)
 
     response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
 
@@ -277,28 +293,65 @@ def test_recommendations_rank_unswiped_candidates_by_taste_and_color(
     assert body["palette"] == SEASON_PALETTES[season]
     assert body["isFallback"] is False
     assert len(body["items"]) == MAXIMUM_ITEM_COUNT
-    returned_ids = {item["product"]["id"] for item in body["items"]}
-    swiped_ids = {product.id for product in liked_products + disliked_products}
-    assert not returned_ids & swiped_ids
-    assert not returned_ids & {product.id for product in excluded_products}
+    assert not {item["product"]["id"] for item in body["items"]} & {product.id for product in excluded_products}
     assert_items_match(body["items"], expected_rows, {product.id: product for product in candidates})
 
     # 같은 입력이면 같은 결과
     assert client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user)).json() == body
 
 
+def test_recommendations_without_centroids_use_uncentered_embeddings(
+    client, create_user, create_product, create_pin, auth_headers, database_session
+):
+    season = Season.AUTUMN_WARM
+    base_color = palette_lab(season)[0]
+    user = matching_user(create_user, season)
+    liked_pins = [matching_pin(create_pin, style=Style.CASUAL, embedding=axis_vector((0, 1.0), (4, 0.5))) for _ in range(3)]
+    for pin in liked_pins:
+        add_swipe(database_session, user.id, pin.id, liked=True)
+    candidates = [
+        matching_product(create_product, style=Style.CASUAL, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
+        matching_product(create_product, style=Style.MINIMAL, embedding=axis_vector((1, 1.0)), color_lab=list(base_color)),
+        matching_product(create_product, style=Style.STREET, embedding=axis_vector((0, 1.0), (1, 1.0)), color_lab=list(base_color)),
+    ]
+    zero_vector = np.zeros(EMBEDDING_DIMENSION)
+    taste_vector = expected_taste_vector(liked_pins, [], [], zero_vector)
+    expected_rows = expected_items(
+        candidates, season, [Style.CASUAL], expected_taste_scores(taste_vector, candidates, zero_vector)
+    )
+
+    response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert_response_shape(body)
+    assert_items_match(body["items"], expected_rows, {product.id: product for product in candidates})
+
+
+def test_recommendations_keep_candidates_regardless_of_swipes(
+    client, create_user, create_product, create_pin, auth_headers, database_session
+):
+    season = Season.SPRING_WARM
+    user = matching_user(create_user, season)
+    for style in (Style.CASUAL, Style.CASUAL, Style.MINIMAL):
+        add_swipe(database_session, user.id, matching_pin(create_pin, style=style).id, liked=True)
+    candidates = [matching_product(create_product, style=Style.CASUAL) for _ in range(3)]
+
+    response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    assert {item["product"]["id"] for item in response.json()["items"]} == {product.id for product in candidates}
+
+
 def test_recommendations_give_neutral_taste_score_when_candidate_similarities_are_equal(
-    client, create_user, create_product, auth_headers, database_session
+    client, create_user, create_product, create_pin, auth_headers, database_session
 ):
     season = Season.SPRING_WARM
     base_color = palette_lab(season)[2]
     user = matching_user(create_user, season)
-    liked_products = [
-        matching_product(create_product, style=Style.CASUAL, embedding=axis_vector((0, 1.0)), color_lab=list(base_color))
-        for _ in range(3)
-    ]
-    for product in liked_products:
-        add_swipe(database_session, user.id, product.id, liked=True)
+    liked_pins = [matching_pin(create_pin, style=Style.CASUAL, embedding=axis_vector((0, 1.0))) for _ in range(3)]
+    for pin in liked_pins:
+        add_swipe(database_session, user.id, pin.id, liked=True)
     # 모든 후보의 cos 값이 같음 → σ = 0 → tasteScore 0.5
     candidates = [
         matching_product(create_product, style=Style.FORMAL, embedding=axis_vector((5, 1.0)), color_lab=shifted_lab(base_color, -40)),
@@ -319,20 +372,17 @@ def test_recommendations_give_neutral_taste_score_when_candidate_similarities_ar
 
 # ---- 정상: 폴백 ----
 def test_recommendations_fall_back_to_color_score_when_likes_are_fewer_than_three(
-    client, create_user, create_product, auth_headers, database_session
+    client, create_user, create_product, create_pin, auth_headers, database_session
 ):
     season = Season.SUMMER_COOL
     palette_colors = palette_lab(season)
     user = matching_user(create_user, season)
-    # 좋아요 2개 (< 3) + 싫어요·옷장 사진이 있어도 폴백
-    liked_products = [
-        matching_product(create_product, style=Style.STREET, embedding=axis_vector((0, 1.0)), color_lab=list(palette_colors[0]))
-        for _ in range(2)
-    ]
-    disliked_product = matching_product(create_product, style=Style.MINIMAL, embedding=axis_vector((1, 1.0)), color_lab=list(palette_colors[0]))
-    for product in liked_products:
-        add_swipe(database_session, user.id, product.id, liked=True)
-    add_swipe(database_session, user.id, disliked_product.id, liked=False)
+    # 핀 좋아요 2개 (< 3) + 싫어요·옷장 사진이 있어도 폴백
+    liked_pins = [matching_pin(create_pin, style=Style.STREET, embedding=axis_vector((0, 1.0))) for _ in range(2)]
+    disliked_pin = matching_pin(create_pin, style=Style.MINIMAL, embedding=axis_vector((1, 1.0)))
+    for pin in liked_pins:
+        add_swipe(database_session, user.id, pin.id, liked=True)
+    add_swipe(database_session, user.id, disliked_pin.id, liked=False)
     add_wardrobe_photo(database_session, user.id, axis_vector((0, 1.0)))
 
     candidates = [
@@ -359,9 +409,6 @@ def test_recommendations_fall_back_to_color_score_when_likes_are_fewer_than_thre
     for item in body["items"]:
         assert item["tasteScore"] == 0
         assert item["score"] == pytest.approx(item["colorScore"], abs=TOLERANCE)
-    assert not {item["product"]["id"] for item in body["items"]} & {
-        product.id for product in liked_products + [disliked_product]
-    }
     assert_items_match(body["items"], expected_rows, {product.id: product for product in candidates})
 
 

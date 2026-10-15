@@ -22,7 +22,7 @@ from PIL import Image  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from common.entity import Base, Product, User  # noqa: E402
+from common.entity import Base, Pin, Product, User  # noqa: E402
 from common.enums import AgeGroup, Category, Gender, Style  # noqa: E402
 from main import app  # noqa: E402
 from shared.database import get_engine, get_session_factory  # noqa: E402
@@ -116,6 +116,30 @@ def create_product(database_session: Session, embedding_model: FakeEmbeddingMode
         database_session.add(product)
         database_session.commit()
         return product
+
+    return factory
+
+
+@pytest.fixture
+def create_pin(database_session: Session, embedding_model: FakeEmbeddingModel) -> Callable[..., Pin]:
+    """DB 에 직접 핀(스와이프용 코디 사진) 생성. 지정하지 않은 컬럼은 기본값."""
+    counter = {"value": 0}
+
+    def factory(**columns) -> Pin:
+        counter["value"] += 1
+        number = counter["value"]
+        defaults = dict(
+            image_url=f"https://image.test/pins/{number}.jpg",
+            gender=Gender.FEMALE,
+            age_group=AgeGroup.TWENTIES,
+            style=Style.MINIMAL,
+            embedding=embedding_model.embed_texts([f"pin-{number}"])[0],
+        )
+        defaults.update(columns)
+        pin = Pin(**defaults)
+        database_session.add(pin)
+        database_session.commit()
+        return pin
 
     return factory
 

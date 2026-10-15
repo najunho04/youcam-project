@@ -34,11 +34,11 @@ class ReversingRandom(FirstPickRandom):
 def load_swipes(database_session, user_id: int) -> dict[int, bool]:
     database_session.expire_all()
     swipes = database_session.scalars(select(Swipe).where(Swipe.user_id == user_id)).all()
-    return {swipe.product_id: swipe.liked for swipe in swipes}
+    return {swipe.pin_id: swipe.liked for swipe in swipes}
 
 
-def add_swipe(database_session, user_id: int, product_id: int, liked: bool) -> None:
-    database_session.add(Swipe(user_id=user_id, product_id=product_id, liked=liked))
+def add_swipe(database_session, user_id: int, pin_id: int, liked: bool) -> None:
+    database_session.add(Swipe(user_id=user_id, pin_id=pin_id, liked=liked))
     database_session.commit()
 
 
@@ -46,8 +46,8 @@ def profiled_user(create_user, nickname: str = "swiper"):
     return create_user(nickname=nickname, age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE)
 
 
-def create_matching_products(create_product, style: Style, amount: int) -> list:
-    return [create_product(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=style) for _ in range(amount)]
+def create_matching_pins(create_pin, style: Style, amount: int) -> list:
+    return [create_pin(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=style) for _ in range(amount)]
 
 
 # ---- allocate_style_quotas ----
@@ -72,76 +72,105 @@ def test_allocate_style_quotas_is_reproducible_with_same_seed():
     assert service.allocate_style_quotas(13, random.Random(42)) == service.allocate_style_quotas(13, random.Random(42))
 
 
+def test_allocate_style_quotas_splits_only_given_styles():
+    male_styles = [Style.MINIMAL, Style.CASUAL, Style.STREET]
+
+    quotas = service.allocate_style_quotas(20, random.Random(3), male_styles)
+
+    assert set(quotas) == set(male_styles)
+    assert sorted(quotas.values()) == [6, 7, 7]
+
+
+def test_swipe_styles_for_male_are_minimal_casual_street_and_female_uses_all_styles():
+    assert service.SWIPE_STYLES_BY_GENDER[Gender.MALE] == [Style.MINIMAL, Style.CASUAL, Style.STREET]
+    assert service.SWIPE_STYLES_BY_GENDER[Gender.FEMALE] == list(Style)
+
+
+def test_get_swipe_cards_for_male_splits_count_across_three_styles_and_skips_others(
+    database_session, create_user, create_pin
+):
+    user = create_user(nickname="male-swiper", age_group=AgeGroup.TWENTIES, gender=Gender.MALE)
+    for style in Style:
+        for _ in range(10):
+            create_pin(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, style=style)
+
+    response = service.get_swipe_cards(database_session, user, 20, random.Random(5))
+
+    style_counts = Counter(card.style for card in response.cards)
+    assert set(style_counts) == {Style.MINIMAL, Style.CASUAL, Style.STREET}
+    assert sorted(style_counts.values()) == [6, 7, 7]
+
+
 # ---- get_swipe_cards: 정상 ----
-def test_get_swipe_cards_picks_quota_per_style_from_unswiped_matching_top_products(
-    database_session, create_user, create_product
+def test_get_swipe_cards_picks_quota_per_style_from_unswiped_matching_pins(
+    database_session, create_user, create_pin
 ):
     user = profiled_user(create_user)
     candidates_by_style = {}
     for style in Style:
-        products = create_matching_products(create_product, style, 4)
-        add_swipe(database_session, user.id, products[0].id, liked=True)  # 이미 스와이프 → 제외
-        candidates_by_style[style] = products[1:]
-    create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, style=Style.MINIMAL)
-    create_product(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, style=Style.MINIMAL)
+        pins = create_matching_pins(create_pin, style, 4)
+        add_swipe(database_session, user.id, pins[0].id, liked=True)  # 이미 스와이프 → 제외
+        candidates_by_style[style] = pins[1:]
+    create_pin(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, style=Style.MINIMAL)
+    create_pin(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, style=Style.MINIMAL)
 
     response = service.get_swipe_cards(database_session, user, 7, FirstPickRandom())
 
     # FirstPickRandom: 나머지 2장은 앞 두 스타일, 스타일 안에서는 id 순 앞에서부터, 순서는 스타일 순
-    expected_products = [
-        product
+    expected_pins = [
+        pin
         for index, style in enumerate(Style)
-        for product in candidates_by_style[style][: 2 if index < 2 else 1]
+        for pin in candidates_by_style[style][: 2 if index < 2 else 1]
     ]
-    assert [card.product_id for card in response.cards] == [product.id for product in expected_products]
-    assert [card.image_url for card in response.cards] == [product.image_url for product in expected_products]
-    assert [card.style for card in response.cards] == [product.style for product in expected_products]
+    assert [card.pin_id for card in response.cards] == [pin.id for pin in expected_pins]
+    assert [card.image_url for card in response.cards] == [pin.image_url for pin in expected_pins]
+    assert [card.style for card in response.cards] == [pin.style for pin in expected_pins]
 
 
-def test_get_swipe_cards_shuffles_final_order_with_random_generator(database_session, create_user, create_product):
+def test_get_swipe_cards_shuffles_final_order_with_random_generator(database_session, create_user, create_pin):
     user = profiled_user(create_user)
     for style in Style:
-        create_matching_products(create_product, style, 1)
+        create_matching_pins(create_pin, style, 1)
 
     in_style_order = service.get_swipe_cards(database_session, user, 5, FirstPickRandom())
     reversed_order = service.get_swipe_cards(database_session, user, 5, ReversingRandom())
 
-    assert [card.product_id for card in reversed_order.cards] == [
-        card.product_id for card in reversed(in_style_order.cards)
+    assert [card.pin_id for card in reversed_order.cards] == [
+        card.pin_id for card in reversed(in_style_order.cards)
     ]
 
 
-def test_get_swipe_cards_does_not_fill_short_styles_from_other_styles(database_session, create_user, create_product):
+def test_get_swipe_cards_does_not_fill_short_styles_from_other_styles(database_session, create_user, create_pin):
     user = profiled_user(create_user)
-    create_matching_products(create_product, Style.STREET, 6)
-    create_matching_products(create_product, Style.LOVELY, 1)
+    create_matching_pins(create_pin, Style.STREET, 6)
+    create_matching_pins(create_pin, Style.LOVELY, 1)
 
     response = service.get_swipe_cards(database_session, user, 20, random.Random(7))
 
     assert Counter(card.style for card in response.cards) == Counter({Style.STREET: 4, Style.LOVELY: 1})
-    assert len({card.product_id for card in response.cards}) == 5
+    assert len({card.pin_id for card in response.cards}) == 5
 
 
-def test_get_swipe_cards_returns_empty_list_without_candidates(database_session, create_user, create_product):
+def test_get_swipe_cards_returns_empty_list_without_candidates(database_session, create_user, create_pin):
     user = profiled_user(create_user)
-    product = create_product(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=Style.CASUAL)
-    add_swipe(database_session, user.id, product.id, liked=False)
-    create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, style=Style.CASUAL)
+    pin = create_pin(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=Style.CASUAL)
+    add_swipe(database_session, user.id, pin.id, liked=False)
+    create_pin(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, style=Style.CASUAL)
 
     response = service.get_swipe_cards(database_session, user, 20, random.Random(1))
 
     assert response.cards == []
 
 
-def test_get_swipe_cards_ignores_other_users_swipes(database_session, create_user, create_product):
+def test_get_swipe_cards_ignores_other_users_swipes(database_session, create_user, create_pin):
     user = profiled_user(create_user)
     other_user = profiled_user(create_user, nickname="other")
-    product = create_product(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=Style.FORMAL)
-    add_swipe(database_session, other_user.id, product.id, liked=True)
+    pin = create_pin(gender=Gender.FEMALE, age_group=AgeGroup.TWENTIES, style=Style.FORMAL)
+    add_swipe(database_session, other_user.id, pin.id, liked=True)
 
     response = service.get_swipe_cards(database_session, user, 5, FirstPickRandom())
 
-    assert [card.product_id for card in response.cards] == [product.id]
+    assert [card.pin_id for card in response.cards] == [pin.id]
 
 
 # ---- get_swipe_cards: 거부 ----
@@ -160,21 +189,21 @@ def test_get_swipe_cards_without_profile_raises_profile_required(database_sessio
 
 # ---- submit_swipe_answers ----
 def test_submit_swipe_answers_upserts_last_value_and_counts_all_stored_swipes(
-    database_session, create_user, create_product
+    database_session, create_user, create_pin
 ):
     user = profiled_user(create_user)
-    resubmitted_product, duplicated_product, untouched_product = (create_product() for _ in range(3))
-    add_swipe(database_session, user.id, resubmitted_product.id, liked=False)
-    add_swipe(database_session, user.id, untouched_product.id, liked=True)
+    resubmitted_pin, duplicated_pin, untouched_pin = (create_pin() for _ in range(3))
+    add_swipe(database_session, user.id, resubmitted_pin.id, liked=False)
+    add_swipe(database_session, user.id, untouched_pin.id, liked=True)
 
     response = service.submit_swipe_answers(
         database_session,
         user,
         SwipeAnswersRequest(
             answers=[
-                SwipeAnswer(product_id=resubmitted_product.id, liked=True),
-                SwipeAnswer(product_id=duplicated_product.id, liked=True),
-                SwipeAnswer(product_id=duplicated_product.id, liked=False),
+                SwipeAnswer(pin_id=resubmitted_pin.id, liked=True),
+                SwipeAnswer(pin_id=duplicated_pin.id, liked=True),
+                SwipeAnswer(pin_id=duplicated_pin.id, liked=False),
             ]
         ),
     )
@@ -182,17 +211,17 @@ def test_submit_swipe_answers_upserts_last_value_and_counts_all_stored_swipes(
 
     assert (response.liked_count, response.total_count) == (2, 3)
     assert load_swipes(database_session, user.id) == {
-        resubmitted_product.id: True,
-        duplicated_product.id: False,
-        untouched_product.id: True,
+        resubmitted_pin.id: True,
+        duplicated_pin.id: False,
+        untouched_pin.id: True,
     }
 
 
-def test_submit_swipe_answers_with_missing_product_raises_and_writes_nothing(
-    database_session, create_user, create_product
+def test_submit_swipe_answers_with_missing_pin_raises_and_writes_nothing(
+    database_session, create_user, create_pin
 ):
     user = profiled_user(create_user)
-    valid_product = create_product()
+    valid_pin = create_pin()
 
     with pytest.raises(AppError) as raised:
         service.submit_swipe_answers(
@@ -200,12 +229,12 @@ def test_submit_swipe_answers_with_missing_product_raises_and_writes_nothing(
             user,
             SwipeAnswersRequest(
                 answers=[
-                    SwipeAnswer(product_id=valid_product.id, liked=True),
-                    SwipeAnswer(product_id=valid_product.id + 1000, liked=False),
+                    SwipeAnswer(pin_id=valid_pin.id, liked=True),
+                    SwipeAnswer(pin_id=valid_pin.id + 1000, liked=False),
                 ]
             ),
         )
     database_session.rollback()
 
-    assert raised.value.error_code == ErrorCode.PRODUCT_NOT_FOUND
+    assert raised.value.error_code == ErrorCode.PIN_NOT_FOUND
     assert load_swipes(database_session, user.id) == {}

@@ -119,10 +119,10 @@ def test_update_profile_is_idempotent(client, create_user, auth_headers, databas
     assert first_snapshot == second_snapshot
 
 
-def test_update_profile_keeps_existing_swipes(client, create_user, create_product, auth_headers, database_session):
+def test_update_profile_keeps_existing_swipes(client, create_user, create_pin, auth_headers, database_session):
     user = create_user(nickname="swiper", age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE)
-    product = create_product(age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE)
-    database_session.add(Swipe(user_id=user.id, product_id=product.id, liked=True))
+    pin = create_pin(age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE)
+    database_session.add(Swipe(user_id=user.id, pin_id=pin.id, liked=True))
     database_session.commit()
 
     response = client.put(
@@ -134,7 +134,7 @@ def test_update_profile_keeps_existing_swipes(client, create_user, create_produc
     assert response.status_code == 200
     database_session.expire_all()
     swipes = database_session.scalars(select(Swipe).where(Swipe.user_id == user.id)).all()
-    assert [(swipe.product_id, swipe.liked) for swipe in swipes] == [(product.id, True)]
+    assert [(swipe.pin_id, swipe.liked) for swipe in swipes] == [(pin.id, True)]
 
 
 # ---- 권한 ----

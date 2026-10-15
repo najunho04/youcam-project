@@ -61,6 +61,47 @@ def test_compute_taste_vector_returns_zero_vector_when_everything_is_empty_or_ca
     assert np.all(service.compute_taste_vector(liked, empty, disliked) == 0)
 
 
+# ---- subtract_centroid / to_centroid_vector ----
+def test_subtract_centroid_subtracts_domain_mean_from_every_row():
+    centroid = axis_vector((0, 1.0))
+    embeddings = stack(axis_vector((0, 1.0), (1, 1.0)), axis_vector((2, 1.0)))
+
+    centered = service.subtract_centroid(embeddings, centroid)
+
+    assert centered == pytest.approx(embeddings - centroid, abs=TOLERANCE)
+
+
+def test_subtract_centroid_keeps_empty_matrix_empty():
+    centered = service.subtract_centroid(stack(), axis_vector((0, 1.0)))
+
+    assert centered.shape == (0, EMBEDDING_DIMENSION)
+
+
+def test_to_centroid_vector_returns_zero_vector_when_centroid_is_missing():
+    assert np.all(service.to_centroid_vector(None) == 0)
+    assert service.to_centroid_vector(axis_vector((3, 1.0)).tolist()) == pytest.approx(axis_vector((3, 1.0)), abs=TOLERANCE)
+
+
+def test_centering_removes_shared_domain_component_from_taste_ranking():
+    # 핀은 모두 축9(사진 종류) 성분을 공유한다. 평균을 빼면 축9 가 사라지고 스타일 축(0/1)만 남는다.
+    liked_pins = stack(axis_vector((0, 1.0), (9, 3.0)), axis_vector((0, 1.0), (9, 3.0)))
+    disliked_pins = stack(axis_vector((1, 1.0), (9, 3.0)))
+    pin_centroid = np.mean(np.vstack([liked_pins, disliked_pins]), axis=0)
+    # 상품: 축9 성분이 큰 상품(착용컷)은 스타일이 반대(축1)
+    products = stack(axis_vector((0, 1.0), (8, 1.0)), axis_vector((1, 1.0), (9, 2.0)))
+    product_centroid = products.mean(axis=0)
+
+    raw_taste = service.compute_taste_vector(liked_pins, stack(), disliked_pins)
+    raw_scores = service.compute_taste_scores(raw_taste, products)
+    centered_taste = service.compute_taste_vector(
+        service.subtract_centroid(liked_pins, pin_centroid), stack(), service.subtract_centroid(disliked_pins, pin_centroid)
+    )
+    centered_scores = service.compute_taste_scores(centered_taste, service.subtract_centroid(products, product_centroid))
+
+    assert raw_scores[1] > raw_scores[0]  # 평균을 빼지 않으면 사진 종류 성분 때문에 반대 스타일이 위
+    assert centered_scores[0] > centered_scores[1]  # 평균을 빼면 좋아요 스타일(축0)이 위
+
+
 # ---- compute_taste_scores ----
 def test_compute_taste_scores_applies_z_score_then_standard_normal_cdf():
     taste_vector = axis_vector((0, 1.0))

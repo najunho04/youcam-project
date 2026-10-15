@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from common.dto import ProductDto, RecommendationItem, RecommendationResponse
 from common.entity import EMBEDDING_DIMENSION, User
-from common.enums import Season, Style
+from common.enums import EmbeddingDomain, Season, Style
 from common.error import AppError, ErrorCode
 from feature.recommendation import repository
 from shared.color import SEASON_PALETTES, palette_lab
@@ -45,6 +45,16 @@ _vectorized_erf = np.vectorize(math.erf, otypes=[float])
 def to_embedding_matrix(embeddings: list) -> np.ndarray:
     """(n, 512) float 행렬. 비어 있으면 (0, 512)."""
     return np.asarray(embeddings, dtype=float).reshape(len(embeddings), EMBEDDING_DIMENSION)
+
+
+def to_centroid_vector(centroid: list[float] | None) -> np.ndarray:
+    """저장된 평균 벡터. 아직 적재 전이라 없으면 0 벡터 (평균을 빼지 않은 것과 같다)."""
+    return np.zeros(EMBEDDING_DIMENSION) if centroid is None else np.asarray(centroid, dtype=float)
+
+
+def subtract_centroid(embeddings: np.ndarray, centroid: np.ndarray) -> np.ndarray:
+    """출처(핀·상품)마다 공유하는 사진 종류 성분을 없애려고 각 행에서 그 출처의 평균을 뺀다."""
+    return embeddings - centroid if len(embeddings) else embeddings
 
 
 def _mean_or_zero(embeddings: np.ndarray) -> np.ndarray:
@@ -135,24 +145,28 @@ def get_recommendations(database_session: Session, user: User) -> Recommendation
         raise AppError(ErrorCode.PERSONAL_COLOR_REQUIRED, "퍼스널컬러 진단을 먼저 해 주세요")
     season = user.season
 
-    swiped_products = repository.find_swiped_products(database_session, user.id)
-    liked_styles = [style for style, _, liked in swiped_products if liked]
+    swiped_pins = repository.find_swiped_pins(database_session, user.id)
+    liked_styles = [style for style, _, liked in swiped_pins if liked]
     preferred_styles = select_preferred_styles(liked_styles)
     is_fallback = len(liked_styles) < MINIMUM_LIKED_COUNT
 
-    candidates = repository.find_unswiped_top_products(database_session, user.id, user.gender, user.age_group)
+    candidates = repository.find_top_products(database_session, user.gender, user.age_group)
     color_scores = compute_color_scores(np.asarray([product.color_lab for product in candidates], dtype=float), season)
     if is_fallback:
         taste_scores = np.zeros(len(candidates))
         scores = color_scores
     else:
+        # u = mean(L − 핀평균) + 1.5 × mean(C) − 0.5 × mean(D − 핀평균). 옷장 사진은 평균을 빼지 않는다
+        pin_centroid = to_centroid_vector(repository.find_centroid(database_session, EmbeddingDomain.PIN))
+        product_centroid = to_centroid_vector(repository.find_centroid(database_session, EmbeddingDomain.PRODUCT))
         taste_vector = compute_taste_vector(
-            to_embedding_matrix([embedding for _, embedding, liked in swiped_products if liked]),
+            subtract_centroid(to_embedding_matrix([embedding for _, embedding, liked in swiped_pins if liked]), pin_centroid),
             to_embedding_matrix(repository.find_wardrobe_embeddings(database_session, user.id)),
-            to_embedding_matrix([embedding for _, embedding, liked in swiped_products if not liked]),
+            subtract_centroid(to_embedding_matrix([embedding for _, embedding, liked in swiped_pins if not liked]), pin_centroid),
         )
         taste_scores = compute_taste_scores(
-            taste_vector, to_embedding_matrix([product.embedding for product in candidates])
+            taste_vector,
+            subtract_centroid(to_embedding_matrix([product.embedding for product in candidates]), product_centroid),
         )
         scores = combine_scores(taste_scores, color_scores)
 

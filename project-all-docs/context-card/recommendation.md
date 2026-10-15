@@ -9,11 +9,13 @@
 - 계약 테스트: backend/test/contract/recommendation/ · 단위 테스트: backend/test/unit/recommendation/, front/test/unit/recommendation/
 
 ## 데이터
-- 읽기: users(age_group, gender, season), swipes, wardrobe_photos(embedding), products
+- 읽기: users(age_group, gender, season), swipes, pins(style, embedding), wardrobe_photos(embedding), products, embedding_centroids
 - 쓰기: 없음 (요청마다 계산, 저장하지 않음)
 - 스키마 발췌:
   - products: id, title, price, mall_name, purchase_url, image_url, gender, age_group, style, category, color_lab real[3], embedding vector(512)
-  - swipes: user_id, product_id, liked
+  - swipes: user_id, pin_id, liked
+  - pins: id, style, embedding vector(512)
+  - embedding_centroids: domain(PIN | PRODUCT) PK, embedding vector(512) — 적재 시 계산한 핀평균 P·상품평균 Q
   - wardrobe_photos: user_id, embedding vector(512)
 
 ## 계약
@@ -27,10 +29,10 @@
   - `ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }`
   - Error: PROFILE_REQUIRED(409) — age_group/gender NULL / PERSONAL_COLOR_REQUIRED(409) — season NULL / UNAUTHORIZED(401)
 - 계산:
-  - 후보: products 중 gender·age_group 일치, category = TOP, **사용자가 스와이프한 상품 제외**
-  - 취향 벡터 `u = normalize(mean(L) + 1.5 × mean(C) − 0.5 × mean(D))` — L: 좋아요 상품 embedding, C: wardrobe_photos embedding, D: 싫어요 상품 embedding. 비어 있는 항은 0 벡터
+  - 후보: products 중 gender·age_group 일치, category = TOP (스와이프는 핀에 하므로 상품을 제외하지 않음)
+  - 취향 벡터 `u = normalize(mean(L − P) + 1.5 × mean(C) − 0.5 × mean(D − P))` — L: 좋아요 핀 embedding, C: wardrobe_photos embedding(평균 빼지 않음), D: 싫어요 핀 embedding, P: 핀평균. 비어 있는 항은 0 벡터, 평균이 없으면 0 벡터
   - tasteScore = 후보 안에서 Z-score 정규화 후 표준정규 CDF:
-    - c_i = cos(u, product_i.embedding), μ·σ = 전체 후보 c_i 의 평균·모표준편차(ddof=0)
+    - c_i = cos(u, product_i.embedding − Q) — Q: 상품평균, μ·σ = 전체 후보 c_i 의 평균·모표준편차(ddof=0)
     - tasteScore_i = Φ((c_i − μ) / σ), Φ(z) = 0.5 × (1 + erf(z / √2))
     - σ = 0 (후보 1개, 모두 같은 값) 이거나 u 가 0 벡터면 모든 후보 0.5
   - colorScore = max(0, 1 − ΔE / 50) — ΔE 는 상품 color_lab 과 팔레트(`shared.color.palette_lab(season)`) 중 가장 가까운 색의 거리(`shared.color.delta_e`)
@@ -41,7 +43,7 @@
     - Style: MINIMAL 미니멀 / CASUAL 캐주얼 / STREET 스트릿 / FORMAL 포멀 / LOVELY 러블리
     - Season: SPRING_WARM 봄 웜톤 / SUMMER_COOL 여름 쿨톤 / AUTUMN_WARM 가을 웜톤 / WINTER_COOL 겨울 쿨톤
   - styleTags (규칙 기반):
-    - 선호 스타일 = 좋아요한 상품들의 style 을 빈도순으로 최대 2개 (빈도가 같으면 Style enum 정의 순서)
+    - 선호 스타일 = 좋아요한 핀들의 style 을 빈도순으로 최대 2개 (빈도가 같으면 Style enum 정의 순서)
     - styleTags = [선호 스타일 한글명…, 시즌 한글명] — 마지막은 항상 시즌명. 좋아요가 없으면 [시즌명] 1개
   - reasonTags (규칙 기반, 상품마다 최대 2개, 이 순서):
     1. 상품 style 이 선호 스타일에 있으면 `"선호하는 {스타일}"` (예: "선호하는 미니멀")
@@ -63,7 +65,6 @@
 - 에러 처리: 공통 규약 따름
 
 ## 불변조건
-- items 에 스와이프한 상품이 없다
 - items 는 score 내림차순, 최대 5개
 - tasteScore, colorScore, score 는 0~1
 - 같은 입력이면 같은 결과 (무작위 없음)
@@ -81,4 +82,4 @@
 - 필요 상태: 로딩 / items 0개 빈 상태 / PROFILE_REQUIRED·PERSONAL_COLOR_REQUIRED 시 해당 화면으로 안내 / 에러
 
 ## 테스트 환경
-- 공용 fixture: backend/test/conftest.py — create_product(embedding, color_lab, style 등 지정 가능), create_user(season=..., age_group=..., gender=...), embedding_model(fake), auth_headers. swipes·wardrobe_photos 는 database_session 으로 직접 삽입
+- 공용 fixture: backend/test/conftest.py — create_product(embedding, color_lab, style 등 지정 가능), create_pin(embedding, style 등), create_user(season=..., age_group=..., gender=...), embedding_model(fake), auth_headers. swipes·wardrobe_photos·embedding_centroids 는 database_session 으로 직접 삽입

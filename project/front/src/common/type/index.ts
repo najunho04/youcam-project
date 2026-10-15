@@ -43,6 +43,7 @@ export const ErrorCode = {
   PROFILE_REQUIRED: 'PROFILE_REQUIRED',
   PERSONAL_COLOR_REQUIRED: 'PERSONAL_COLOR_REQUIRED',
   PRODUCT_NOT_FOUND: 'PRODUCT_NOT_FOUND',
+  PIN_NOT_FOUND: 'PIN_NOT_FOUND',
   WARDROBE_LIMIT_EXCEEDED: 'WARDROBE_LIMIT_EXCEEDED',
   FITTING_NOT_FOUND: 'FITTING_NOT_FOUND',
 } as const
@@ -84,7 +85,7 @@ export interface ProfileUpdateRequest {
 
 // ---- swipe ----
 export interface SwipeCardDto {
-  productId: number
+  pinId: number
   imageUrl: string
   style: Style
 }
@@ -92,7 +93,7 @@ export interface SwipeCardsResponse {
   cards: SwipeCardDto[]
 }
 export interface SwipeAnswer {
-  productId: number
+  pinId: number
   liked: boolean
 }
 export interface SwipeAnswersRequest {
