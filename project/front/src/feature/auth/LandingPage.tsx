@@ -10,11 +10,17 @@ import { fetchMe } from './api'
 
 const SERVICE_INTRODUCTION = '퍼스널 컬러와 취향으로 나에게 맞는 옷을 추천해 드려요'
 
-const LANDING_STEPS = [
-  { icon: '📷', title: '사진 두 장', description: '퍼스널컬러 진단' },
-  { icon: '👆', title: '스와이프 20번', description: '내 취향 분석' },
-  { icon: '👕', title: '추천 상의 입어보기', description: '바로 구매까지' },
+/** 이미지 배경색 이름. 메인 화면 배경이 같은 색으로 함께 바뀐다 (색 값은 auth.css). */
+type HeroBackdrop = 'cream' | 'brown' | 'sky'
+
+/** 대표 화면에서 번갈아 보여 줄 이미지. 스케치 → 실사 순서로 짝지어 둔다. */
+const HERO_SLIDES: { source: string; backdrop: HeroBackdrop }[] = [
+  { source: '/landing/hero-man-sketch.webp', backdrop: 'cream' },
+  { source: '/landing/hero-man-photo.webp', backdrop: 'brown' },
+  { source: '/landing/hero-woman-sketch.webp', backdrop: 'cream' },
+  { source: '/landing/hero-woman-photo.webp', backdrop: 'sky' },
 ]
+const HERO_IMAGE_INTERVAL_MILLISECONDS = 1750
 
 /** 이어하기 이동 규칙: 프로필 → 퍼스널 컬러 → 추천 순으로 비어 있는 단계로 보낸다. */
 function getContinueRoute(user: UserDto): string {
@@ -23,8 +29,41 @@ function getContinueRoute(user: UserDto): string {
   return ROUTES.recommendation
 }
 
+/** 대표 이미지 순번을 일정 간격으로 넘긴다. */
+function useHeroSlideIndex(): number {
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(
+      () => setActiveIndex((index) => (index + 1) % HERO_SLIDES.length),
+      HERO_IMAGE_INTERVAL_MILLISECONDS,
+    )
+    return () => window.clearInterval(intervalId)
+  }, [])
+
+  return activeIndex
+}
+
+/** 겹쳐 둔 대표 이미지 중 activeIndex 만 서서히 드러낸다 (스케치가 실사로 번지듯 전환). */
+function LandingHero({ activeIndex }: { activeIndex: number }) {
+  return (
+    <div className="landing-hero" aria-hidden="true">
+      {HERO_SLIDES.map((slide, index) => (
+        <img
+          key={slide.source}
+          className={`landing-hero-image${index === activeIndex ? ' landing-hero-image-active' : ''}`}
+          src={slide.source}
+          alt=""
+        />
+      ))}
+    </div>
+  )
+}
+
 export function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => tokenStorage.get() !== null)
+
+  const heroSlideIndex = useHeroSlideIndex()
 
   const handleUnauthorized = useCallback(() => setIsLoggedIn(false), [])
 
@@ -35,33 +74,15 @@ export function LandingPage() {
 
   return (
     <PageLayout width="wide">
-      <div className="landing">
-        <div className="landing-hero" aria-hidden="true">
-          <span className="landing-orb landing-orb-warm" />
-          <span className="landing-orb landing-orb-cool" />
-          <span className="landing-orb landing-orb-olive" />
-          <span className="landing-orb landing-orb-rose" />
-        </div>
+      <div className="landing" data-hero-backdrop={HERO_SLIDES[heroSlideIndex].backdrop}>
         <div className="landing-copy">
+          <p className="landing-eyebrow">사진 한 장에서 피팅까지</p>
           <h1 className="landing-display">
             나에게 어울리고,
             <br />
             내 취향인 옷.
           </h1>
           <p className="page-lede landing-lede">{SERVICE_INTRODUCTION}</p>
-          <ol className="landing-steps">
-            {LANDING_STEPS.map((step) => (
-              <li key={step.title}>
-                <span className="landing-step-icon" aria-hidden="true">
-                  {step.icon}
-                </span>
-                <span>
-                  {step.title}
-                  <small>{step.description}</small>
-                </span>
-              </li>
-            ))}
-          </ol>
           <div className="landing-actions">
             {isLoggedIn ? (
               <LoggedInSection onLogout={handleLogout} onUnauthorized={handleUnauthorized} />
@@ -70,6 +91,8 @@ export function LandingPage() {
             )}
           </div>
         </div>
+
+        <LandingHero activeIndex={heroSlideIndex} />
       </div>
     </PageLayout>
   )

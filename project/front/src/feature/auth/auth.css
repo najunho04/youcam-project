@@ -1,32 +1,73 @@
 /* auth 슬라이스 전용: 랜딩 · 가입/로그인 폼 */
-.landing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: center; min-height: calc(100dvh - 56px - 104px); }
-.landing-copy { display: grid; gap: 20px; align-content: center; order: -1; }
-.landing-hero { position: relative; aspect-ratio: 1; width: 100%; max-width: 520px; justify-self: end; }
-.landing-orb { position: absolute; border-radius: 50%; animation: landing-float 9s var(--ease-out) infinite alternate; }
-.landing-orb-warm { width: 58%; height: 58%; left: 2%; top: 14%; background: radial-gradient(circle at 35% 35%, #f6d2b4, #d98f63); }
-.landing-orb-cool { width: 44%; height: 44%; right: 2%; top: 2%; background: radial-gradient(circle at 35% 35%, #c9dcf5, #6d8fc7); animation-delay: -3s; }
-.landing-orb-olive { width: 40%; height: 40%; right: 10%; bottom: 8%; background: radial-gradient(circle at 35% 35%, #d6e3c4, #7f9a62); animation-delay: -6s; }
-.landing-orb-rose { width: 26%; height: 26%; left: 40%; top: 6%; background: radial-gradient(circle at 35% 35%, #f1cfe6, #b878a5); animation-delay: -1.5s; }
-@keyframes landing-float { to { transform: translate3d(0, 12px, 0) scale(1.03); } }
-.landing-display { margin: 0; font-size: clamp(2.5rem, 5.2vw, 4.25rem); line-height: 1.04; letter-spacing: -0.035em; font-weight: 700; }
+
+/* ---------- 랜딩: 배경이 대표 이미지 배경색을 따라 바뀐다 (메인 화면에만 토큰을 덮어쓴다) ---------- */
+body:has(.landing) { background: #fcf4ec; }
+.page-shell:has(.landing) {
+  --landing-backdrop: #fcf4ec;
+  --color-surface: rgba(255, 255, 255, 0.5);
+  --color-surface-secondary: rgba(255, 255, 255, 0.55);
+  --color-text: #1d1d1f;
+  --color-muted: rgba(29, 29, 31, 0.66);
+  --color-faint: rgba(29, 29, 31, 0.4);
+  --color-border: rgba(29, 29, 31, 0.1);
+  --color-accent: #1d1d1f;
+  --color-accent-soft: rgba(29, 29, 31, 0.08);
+  --color-primary: #1d1d1f;
+  --color-primary-text: #ffffff;
+  --color-chrome: transparent;
+  --landing-serif: 'Noto Serif KR', 'Nanum Myeongjo', 'AppleMyungjo', 'Batang', Georgia, serif;
+  color-scheme: light;
+  color: var(--color-text);
+  background: var(--landing-backdrop);
+  transition: background-color 600ms var(--ease-out);
+}
+.page-shell:has(.landing[data-hero-backdrop='brown']) { --landing-backdrop: #a07657; }
+.page-shell:has(.landing[data-hero-backdrop='sky']) { --landing-backdrop: #b7d3df; }
+/* 헤더 블러의 채도 보정이 배경색을 진하게 바꾸므로 메인 화면에서는 끈다 */
+.page-shell:has(.landing) .site-header { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* 큰 대표 이미지를 문구 바로 옆에 두도록 메인 화면만 본문 폭을 넓힌다 */
+.page-shell:has(.landing) .page, .page-shell:has(.landing) .site-header-row { max-width: 1440px; }
+.landing {
+  display: grid; grid-template-columns: auto auto; justify-content: start; gap: 56px; align-items: center;
+  min-height: calc(100dvh - 56px - 104px);
+}
+.landing-copy { display: grid; gap: 20px; align-content: center; }
+.landing-eyebrow { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--color-muted); }
+.landing-display {
+  margin: 0; font-family: var(--landing-serif); font-weight: 700;
+  font-size: clamp(2.5rem, 4.4vw, 4.5rem); line-height: 1.08; letter-spacing: -0.03em;
+}
 .landing-lede { margin: 0; font-size: clamp(1.0625rem, 1.4vw, 1.25rem); }
-.landing-steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.landing-steps li { display: grid; gap: 10px; align-content: start; padding: 16px; border-radius: var(--radius-medium); background: var(--color-surface); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-.landing-steps small { display: block; margin-top: 2px; color: var(--color-muted); font-size: 13px; font-weight: 400; }
-.landing-step-icon { width: 36px; height: 36px; border-radius: 11px; background: var(--color-surface-secondary); display: grid; place-items: center; font-size: 16px; }
 .landing-actions { display: grid; grid-template-columns: minmax(0, 280px); gap: 8px; margin-top: 12px; }
 .landing-login, .auth-switch { margin: 4px 0 0; font-size: 15px; color: var(--color-muted); }
 .auth-switch { text-align: center; }
 .landing-login a, .auth-switch a { font-weight: 600; text-decoration: none; }
 
+/* 대표 이미지: 겹쳐 둔 이미지를 서서히 바꾸고, 가장자리를 배경에 녹인다 */
+.landing-hero {
+  position: relative; aspect-ratio: 944 / 1111; overflow: hidden;
+  /* 화면 높이에서 헤더 + 위아래 여백을 뺀 만큼 (본문 여백을 위아래 24px 씩 파고든다) */
+  height: calc(100dvh - 112px); max-width: 52vw; margin: -24px 0;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 97%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent), linear-gradient(to bottom, transparent, #000 4%, #000 97%, transparent);
+  mask-composite: intersect;
+}
+.landing-hero-image {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; transform: scale(1.04);
+  transition: opacity 600ms var(--ease-out), transform 2400ms var(--ease-out);
+}
+.landing-hero-image-active { opacity: 1; transform: scale(1); }
+
+/* ---------- 가입 · 로그인 폼 ---------- */
 .auth-form { display: grid; gap: 20px; }
 .auth-form-error { margin: 8px 16px 0; font-size: 13px; color: var(--color-error); }
 
 @media (max-width: 899px) {
-  .landing { grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; }
-  .landing-hero { order: -2; justify-self: center; max-width: 320px; margin: -12px 0 -24px; }
-  .landing-steps { grid-template-columns: minmax(0, 1fr); }
-  .landing-steps li { grid-template-columns: 36px 1fr; align-items: center; padding: 0; background: transparent; }
+  .landing { grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 32px; min-height: 0; }
+  .landing-hero { justify-self: center; height: auto; width: 100%; max-width: 440px; margin: 0; }
   .landing-actions { grid-template-columns: minmax(0, 1fr); }
   .landing-login { text-align: center; }
 }
