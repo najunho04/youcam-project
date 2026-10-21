@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -42,37 +42,27 @@ describe('LandingPage', () => {
   })
 
   describe('비로그인', () => {
-    it('시작하기는 가입 화면으로 이동하고 users/me 를 호출하지 않는다', async () => {
+    it('LOGIN 은 로그인 화면으로 이동하고 users/me 를 호출하지 않는다', async () => {
       const fetchMock = stubFetchResponse(200, newUser)
       renderLandingPage()
 
-      await userEvent.click(screen.getByRole('link', { name: '시작하기' }))
-
-      expect(await screen.findByText('가입 화면')).toBeInTheDocument()
-      expect(fetchMock).not.toHaveBeenCalled()
-    })
-
-    it('로그인 링크는 로그인 화면으로 이동한다', async () => {
-      stubFetchResponse(200, newUser)
-      renderLandingPage()
-
-      await userEvent.click(screen.getByRole('link', { name: '로그인' }))
+      await userEvent.click(screen.getByRole('link', { name: 'LOGIN' }))
 
       expect(await screen.findByText('로그인 화면')).toBeInTheDocument()
+      expect(fetchMock).not.toHaveBeenCalled()
     })
   })
 
   describe('로그인', () => {
-    it('users/me 로딩 중에는 이어하기가 비활성이고, 완료되면 닉네임 인사를 보여준다', async () => {
+    it('users/me 로딩 중에는 CONTINUE 가 비활성이고, 완료되면 닉네임 인사를 보여준다', async () => {
       tokenStorage.set('valid-token')
       const { fetchMock, respond } = stubPendingFetch()
       renderLandingPage()
 
-      expect(screen.getByRole('button', { name: '이어하기' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeDisabled()
       respond(200, newUser)
 
-      expect(await screen.findByText('member 님, 반가워요')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: '이어하기' })).toBeEnabled()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
       expect(fetchMock).toHaveBeenCalledWith('/api/users/me', expect.objectContaining({ method: 'GET' }))
     })
 
@@ -80,13 +70,13 @@ describe('LandingPage', () => {
       ['ageGroup·gender 가 없으면 프로필', newUser, '프로필 화면'],
       ['personalColor 가 없으면 퍼스널컬러', profiledUser, '퍼스널컬러 화면'],
       ['모두 있으면 추천', completeUser, '추천 화면'],
-    ])('이어하기: %s 화면으로 이동한다', async (_, user, expectedScreen) => {
+    ])('CONTINUE: %s 화면으로 이동한다', async (_, user, expectedScreen) => {
       tokenStorage.set('valid-token')
       stubFetchResponse(200, user)
       renderLandingPage()
 
-      await screen.findByText('member 님, 반가워요')
-      await userEvent.click(screen.getByRole('button', { name: '이어하기' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: 'CONTINUE' }))
 
       expect(await screen.findByText(expectedScreen)).toBeInTheDocument()
     })
@@ -96,8 +86,8 @@ describe('LandingPage', () => {
       stubFetchResponse(200, { ...completeUser, gender: null })
       renderLandingPage()
 
-      await screen.findByText('member 님, 반가워요')
-      await userEvent.click(screen.getByRole('button', { name: '이어하기' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: 'CONTINUE' }))
 
       expect(await screen.findByText('프로필 화면')).toBeInTheDocument()
     })
@@ -107,11 +97,11 @@ describe('LandingPage', () => {
       const fetchMock = stubFetchResponse(200, newUser)
       renderLandingPage()
 
-      await screen.findByText('member 님, 반가워요')
-      await userEvent.click(screen.getByRole('button', { name: '로그아웃' }))
+      await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
+      await userEvent.click(screen.getByRole('button', { name: 'LOGOUT' }))
 
       expect(tokenStorage.get()).toBeNull()
-      expect(screen.getByRole('link', { name: '시작하기' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'LOGIN' })).toBeInTheDocument()
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
@@ -120,7 +110,7 @@ describe('LandingPage', () => {
       stubFetchResponse(401, { error: { code: ErrorCode.UNAUTHORIZED, message: 'UNAUTHORIZED' } })
       renderLandingPage()
 
-      expect(await screen.findByRole('link', { name: '시작하기' })).toBeInTheDocument()
+      expect(await screen.findByRole('link', { name: 'LOGIN' })).toBeInTheDocument()
       expect(tokenStorage.get()).toBeNull()
     })
 
@@ -131,9 +121,9 @@ describe('LandingPage', () => {
 
       expect(await screen.findByRole('alert')).toBeInTheDocument()
       stubFetchResponse(200, newUser)
-      await userEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+      await userEvent.click(screen.getByRole('button', { name: 'RETRY' }))
 
-      expect(await screen.findByText('member 님, 반가워요')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
     })
   })
 })

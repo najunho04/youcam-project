@@ -1,13 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ErrorCode } from '../../../src/common/type'
 import type { AuthResponse } from '../../../src/common/type'
 import { LoginPage } from '../../../src/feature/auth'
 import { tokenStorage } from '../../../src/shared/auth'
+import { setLanguage } from '../../../src/shared/i18n'
 import { ROUTES } from '../../../src/shared/navigation'
 import { stubFetchResponse, stubPendingFetch } from './fetchStub'
+
+// 이 파일의 명세는 한국어 화면 기준이다. 영어 화면은 *.english.test.tsx 에서 확인한다.
+beforeEach(() => setLanguage('ko'))
+afterEach(() => setLanguage('en'))
 
 const authResponse: AuthResponse = {
   accessToken: 'login-token',

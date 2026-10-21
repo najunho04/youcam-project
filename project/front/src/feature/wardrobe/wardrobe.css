@@ -6,7 +6,7 @@
 @keyframes wardrobe-cell-in { from { opacity: 0; scale: 0.92; } }
 .wardrobe-picker {
   position: relative; display: grid; place-content: center; justify-items: center; gap: 4px; cursor: pointer;
-  background: transparent; border: 1.5px dashed var(--color-faint); color: var(--color-accent); font-size: 15px; font-weight: 600;
+  background: transparent; border: 1px dashed var(--color-faint); color: var(--color-text); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500;
   transition: transform 100ms ease-out; animation: none;
 }
 .wardrobe-picker::before { content: '＋'; font-size: 30px; line-height: 1; }

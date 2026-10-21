@@ -24,14 +24,14 @@
 .recommendation-card.is-featured .recommendation-card-image img { height: 100%; }
 .recommendation-card-rank {
   position: absolute; left: 12px; top: 12px; height: 26px; padding: 0 10px; border-radius: 999px;
-  display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--color-text);
+  display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; color: var(--color-text);
   background: var(--color-chrome); -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
 }
 
 .recommendation-card-body { min-width: 0; padding: 16px 18px 18px; display: grid; gap: 10px; align-content: start; }
 .recommendation-card.is-featured .recommendation-card-body { padding: 28px; gap: 14px; align-content: center; }
-.recommendation-card-mall { margin: 0; font-size: 12px; font-weight: 600; color: var(--color-muted); }
-.recommendation-card-title { margin: 0; font-size: 16px; line-height: 1.3; letter-spacing: -0.01em; font-weight: 600; }
+.recommendation-card-mall { margin: 0; font-size: 12px; font-weight: 500; color: var(--color-muted); }
+.recommendation-card-title { margin: 0; font-size: 16px; line-height: 1.3; letter-spacing: -0.01em; font-weight: 500; }
 .recommendation-card.is-featured .recommendation-card-title { font-size: clamp(1.25rem, 2vw, 1.625rem); line-height: 1.2; letter-spacing: -0.02em; }
 .recommendation-card:not(.is-featured) .price { font-size: 17px; }
 .recommendation-card.is-featured .price { font-size: 24px; }

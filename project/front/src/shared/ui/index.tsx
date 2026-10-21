@@ -1,7 +1,13 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { LanguageToggle, useMessages } from '../i18n'
 import { ROUTES } from '../navigation'
 import './ui.css'
+
+const MESSAGES = {
+  en: { back: 'Back', progress: 'Progress', loading: 'Loading…', retry: 'Try again' },
+  ko: { back: '뒤로', progress: '진행 단계', loading: '불러오는 중…', retry: '다시 시도' },
+}
 
 export type ButtonVariant = 'primary' | 'secondary' | 'tinted' | 'plain'
 export type ButtonSize = 'regular' | 'small'
@@ -31,7 +37,7 @@ export function PageLayout({
   lede,
   children,
   onBack,
-  backLabel = '뒤로',
+  backLabel,
   navigationTitle,
   navigationAction,
   step,
@@ -49,6 +55,7 @@ export function PageLayout({
   footer?: ReactNode
   width?: PageWidth
 }) {
+  const messages = useMessages(MESSAGES)
   const centerTitle = navigationTitle ?? (step ? `${step.current} / ${step.total}` : undefined)
   return (
     <div className="page-shell">
@@ -59,13 +66,16 @@ export function PageLayout({
             ColorFit
           </Link>
           <span className="site-header-title">{centerTitle}</span>
-          <span className="site-header-action">{navigationAction}</span>
+          <span className="site-header-action">
+            {navigationAction}
+            <LanguageToggle />
+          </span>
         </div>
         {step && (
           <div
             className="step-progress"
             role="progressbar"
-            aria-label="진행 단계"
+            aria-label={messages.progress}
             aria-valuemin={1}
             aria-valuemax={step.total}
             aria-valuenow={step.current}
@@ -78,7 +88,7 @@ export function PageLayout({
         {onBack && (
           <button type="button" className="page-back" onClick={onBack}>
             <span aria-hidden="true">‹</span>
-            {backLabel}
+            {backLabel ?? messages.back}
           </button>
         )}
         {title && <h1 className="page-title">{title}</h1>}
@@ -100,22 +110,24 @@ export function Button({
   return <button type={type} className={`${buttonClassName(variant, size)} ${className}`} {...props} />
 }
 
-export function Loading({ message = '불러오는 중…' }: { message?: string }) {
+export function Loading({ message }: { message?: string }) {
+  const messages = useMessages(MESSAGES)
   return (
     <div className="state" role="status">
       <span className="spinner" aria-hidden="true" />
-      {message}
+      {message ?? messages.loading}
     </div>
   )
 }
 
 export function ErrorMessage({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const messages = useMessages(MESSAGES)
   return (
     <div className="state state-banner state-error" role="alert">
       <p>{message}</p>
       {onRetry && (
         <Button variant="plain" onClick={onRetry}>
-          다시 시도
+          {messages.retry}
         </Button>
       )}
     </div>

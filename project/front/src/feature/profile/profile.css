@@ -3,21 +3,22 @@
 .profile-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 .profile-fieldset legend { padding: 0; margin-bottom: 8px; }
 
-.profile-segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border-radius: var(--radius-small); background: var(--color-surface-secondary); }
-.profile-segment { position: relative; display: grid; place-items: center; height: 38px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: background-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
-.profile-segment:has(input:checked) { background: var(--color-surface); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); }
-.profile-segment:has(input:focus-visible) { outline: 3px solid var(--color-accent); outline-offset: 1px; }
+.profile-segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; padding: 0; background: var(--color-border); box-shadow: inset 0 0 0 1px var(--color-border); }
+.profile-segment { position: relative; display: grid; place-items: center; height: 48px; background: var(--color-background); box-shadow: inset 0 0 0 1px var(--color-border); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+.profile-segment:has(input:checked) { background: var(--color-accent); color: var(--color-primary-text); }
+.profile-segment:has(input:focus-visible) { outline: 1px solid var(--color-accent); outline-offset: 3px; }
 
 .profile-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .profile-choice {
-  position: relative; display: flex; align-items: center; justify-content: center; min-height: 72px; padding: 0 12px;
-  border-radius: var(--radius-medium); background: var(--color-surface); box-shadow: inset 0 0 0 1px var(--color-border);
-  font-size: 17px; font-weight: 600; letter-spacing: -0.01em; cursor: pointer;
+  position: relative; display: flex; min-height: 96px; justify-content: flex-start; align-items: flex-end; padding: 0 12px 12px;
+  border-radius: var(--radius); background: transparent; box-shadow: inset 0 0 0 1px var(--color-border);
+  font-size: 22px; font-weight: 500; letter-spacing: -0.04em; cursor: pointer;
   transition: transform 100ms ease-out, box-shadow 150ms var(--ease-out);
 }
 .profile-choice:active { transform: scale(0.97); }
-.profile-choice:has(input:checked) { box-shadow: inset 0 0 0 2px var(--color-text); }
-.profile-choice:has(input:focus-visible) { outline: 3px solid var(--color-accent); outline-offset: 2px; }
+.profile-choice:hover { box-shadow: inset 0 0 0 1px var(--color-border-strong); }
+.profile-choice:has(input:checked) { background: var(--color-accent); color: var(--color-primary-text); box-shadow: none; }
+.profile-choice:has(input:focus-visible) { outline: 1px solid var(--color-accent); outline-offset: 3px; }
 
 @media (max-width: 767px) {
   .profile-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

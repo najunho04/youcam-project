@@ -6,8 +6,13 @@ import { AgeGroup, ErrorCode, Gender } from '../../../src/common/type'
 import type { UserDto } from '../../../src/common/type'
 import { ProfilePage } from '../../../src/feature/profile'
 import { tokenStorage } from '../../../src/shared/auth'
+import { setLanguage } from '../../../src/shared/i18n'
 import { ROUTES } from '../../../src/shared/navigation'
 import { stubFetchByMethod } from './fetchStub'
+
+// 이 파일의 명세는 한국어 화면 기준이다. 영어 화면은 *.english.test.tsx 에서 확인한다.
+beforeEach(() => setLanguage('ko'))
+afterEach(() => setLanguage('en'))
 
 const newUser: UserDto = { id: 1, nickname: 'member', ageGroup: null, gender: null, personalColor: null }
 const profiledUser: UserDto = { ...newUser, ageGroup: AgeGroup.THIRTIES, gender: Gender.MALE }

@@ -6,8 +6,13 @@ import { ErrorCode } from '../../../src/common/type'
 import type { WardrobePhotosResponse } from '../../../src/common/type'
 import { WardrobePage } from '../../../src/feature/wardrobe'
 import { tokenStorage } from '../../../src/shared/auth'
+import { setLanguage } from '../../../src/shared/i18n'
 import { ROUTES } from '../../../src/shared/navigation'
 import { stubFetch } from './fetchStub'
+
+// 이 파일의 명세는 한국어 화면 기준이다. 영어 화면은 *.english.test.tsx 에서 확인한다.
+beforeEach(() => setLanguage('ko'))
+afterEach(() => setLanguage('en'))
 
 const uploadedResponse: WardrobePhotosResponse = {
   photos: [

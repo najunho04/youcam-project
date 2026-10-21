@@ -28,8 +28,8 @@
 }
 
 .swipe-stamp {
-  position: absolute; top: 22px; padding: 2px 12px; border: 3px solid currentColor; border-radius: 10px;
-  font-size: 24px; font-weight: 800; letter-spacing: 0.02em; background: rgba(255, 255, 255, 0.75); pointer-events: none;
+  position: absolute; top: 22px; padding: 2px 12px; border: 2px solid currentColor; border-radius: var(--radius);
+  font-size: 24px; font-weight: 800; letter-spacing: 0.02em; background: rgba(5, 5, 5, 0.55); pointer-events: none;
 }
 .swipe-stamp-like { left: 20px; color: var(--color-like); transform: rotate(-12deg); }
 .swipe-stamp-nope { right: 20px; color: var(--color-nope); transform: rotate(12deg); }

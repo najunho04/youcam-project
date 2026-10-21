@@ -2,32 +2,18 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AgeGroup, Gender } from '../../common/type'
-import { ApiError } from '../../shared/api'
+import { ApiError, useDescribeError } from '../../shared/api'
+import { useMessages } from '../../shared/i18n'
 import { ROUTES } from '../../shared/navigation'
 import { Button, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
 import { fetchMe, updateProfile } from './api'
+import { PROFILE_MESSAGES } from './messages'
 import './profile.css'
 
-const AGE_GROUP_OPTIONS: { value: AgeGroup; label: string }[] = [
-  { value: AgeGroup.LATE_TEENS, label: '10대 후반' },
-  { value: AgeGroup.TWENTIES, label: '20대' },
-  { value: AgeGroup.THIRTIES, label: '30대' },
-  { value: AgeGroup.FORTIES_PLUS, label: '40대 이상' },
-]
-
-const PAGE_TITLE = '어떤 분이세요?'
-const PAGE_LEDE = '스와이프할 옷을 고르는 데만 써요.'
+const AGE_GROUP_ORDER: AgeGroup[] = [AgeGroup.LATE_TEENS, AgeGroup.TWENTIES, AgeGroup.THIRTIES, AgeGroup.FORTIES_PLUS]
+const GENDER_ORDER: Gender[] = [Gender.FEMALE, Gender.MALE]
 const ONBOARDING_STEP = { current: 1, total: 4 }
 const FORM_ID = 'profile-form'
-
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: Gender.FEMALE, label: '여성' },
-  { value: Gender.MALE, label: '남성' },
-]
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '요청에 실패했습니다'
-}
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401
@@ -36,6 +22,8 @@ function isUnauthorized(error: unknown): boolean {
 /** 나이대·성별 입력. 기존 값은 users/me 로 채우고, 저장 후 퍼스널 컬러 화면으로 보낸다. */
 export function ProfilePage() {
   const navigate = useNavigate()
+  const messages = useMessages(PROFILE_MESSAGES)
+  const describeError = useDescribeError()
   const [isLoaded, setIsLoaded] = useState(false)
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null)
   const [requestCount, setRequestCount] = useState(0)
@@ -57,7 +45,7 @@ export function ProfilePage() {
         if (isCancelled) return
         // 401 이면 shared/api 가 토큰을 지운다 → 로그인 화면으로
         if (isUnauthorized(error)) navigate(ROUTES.login, { replace: true })
-        else setLoadErrorMessage(toErrorMessage(error))
+        else setLoadErrorMessage(describeError(error))
       })
     return () => {
       isCancelled = true
@@ -82,14 +70,14 @@ export function ProfilePage() {
         navigate(ROUTES.login, { replace: true })
         return
       }
-      setSaveErrorMessage(toErrorMessage(error))
+      setSaveErrorMessage(describeError(error))
       setIsSaving(false)
     }
   }
 
   const layoutProps = {
-    title: PAGE_TITLE,
-    lede: PAGE_LEDE,
+    title: messages.title,
+    lede: messages.lede,
     step: ONBOARDING_STEP,
     onBack: () => navigate(ROUTES.landing),
   }
@@ -115,48 +103,48 @@ export function ProfilePage() {
       {...layoutProps}
       footer={
         <Button type="submit" form={FORM_ID} disabled={ageGroup === null || gender === null || isSaving}>
-          다음
+          {messages.next}
         </Button>
       }
     >
       <form id={FORM_ID} onSubmit={handleSubmit} className="profile-form">
         <fieldset className="profile-fieldset">
-          <legend className="eyebrow">성별</legend>
+          <legend className="eyebrow">{messages.gender}</legend>
           <div className="profile-segmented">
-            {GENDER_OPTIONS.map((option) => (
-              <label key={option.value} className="profile-segment">
+            {GENDER_ORDER.map((value) => (
+              <label key={value} className="profile-segment">
                 <input
                   type="radio"
                   name="gender"
                   className="visually-hidden"
-                  value={option.value}
-                  checked={gender === option.value}
-                  onChange={() => setGender(option.value)}
+                  value={value}
+                  checked={gender === value}
+                  onChange={() => setGender(value)}
                 />
-                {option.label}
+                {messages.genderLabels[value]}
               </label>
             ))}
           </div>
         </fieldset>
         <fieldset className="profile-fieldset">
-          <legend className="eyebrow">나이대</legend>
+          <legend className="eyebrow">{messages.ageGroup}</legend>
           <div className="profile-choice-grid">
-            {AGE_GROUP_OPTIONS.map((option) => (
-              <label key={option.value} className="profile-choice">
+            {AGE_GROUP_ORDER.map((value) => (
+              <label key={value} className="profile-choice">
                 <input
                   type="radio"
                   name="ageGroup"
                   className="visually-hidden"
-                  value={option.value}
-                  checked={ageGroup === option.value}
-                  onChange={() => setAgeGroup(option.value)}
+                  value={value}
+                  checked={ageGroup === value}
+                  onChange={() => setAgeGroup(value)}
                 />
-                {option.label}
+                {messages.ageGroupLabels[value]}
               </label>
             ))}
           </div>
         </fieldset>
-        {isSaving && <Loading message="저장 중…" />}
+        {isSaving && <Loading message={messages.saving} />}
         {saveErrorMessage && <ErrorMessage message={saveErrorMessage} />}
       </form>
     </PageLayout>

@@ -1,12 +1,15 @@
 import { useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent } from 'react'
 import type { FittingDto, ProductDto } from '../../common/type'
+import { useMessages } from '../../shared/i18n'
+import { FITTING_MESSAGES } from './messages'
 
 const INITIAL_DIVIDER_PERCENT = 50
 const KEYBOARD_STEP_PERCENT = 5
 
 /** 상품 썸네일·상품명·쇼핑몰·가격 한 줄. */
 export function ProductSummary({ product, caption }: { product: ProductDto; caption?: string }) {
+  const messages = useMessages(FITTING_MESSAGES)
   return (
     <section className="fitting-product">
       <img className="fitting-product-thumbnail" src={product.imageUrl} alt="" />
@@ -14,13 +17,14 @@ export function ProductSummary({ product, caption }: { product: ProductDto; capt
         <h2 className="fitting-product-title">{product.title}</h2>
         <p className="footnote">{caption ?? product.mallName}</p>
       </div>
-      <p className="fitting-product-price">{`${product.price.toLocaleString('ko-KR')}원`}</p>
+      <p className="fitting-product-price">{messages.price(product.price)}</p>
     </section>
   )
 }
 
 /** DONE: 원본 위에 결과를 겹치고, 경계선을 끌어 비교한다. */
 export function FittingComparison({ fitting }: { fitting: FittingDto }) {
+  const messages = useMessages(FITTING_MESSAGES)
   const [dividerPercent, setDividerPercent] = useState(INITIAL_DIVIDER_PERCENT)
   const isDragging = useRef(false)
 
@@ -57,25 +61,25 @@ export function FittingComparison({ fitting }: { fitting: FittingDto }) {
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
     >
-      <img className="fitting-compare-layer" src={fitting.originalImageUrl} alt="원본" draggable={false} />
+      <img className="fitting-compare-layer" src={fitting.originalImageUrl} alt={messages.original} draggable={false} />
       <img
         className="fitting-compare-layer"
         src={fitting.resultImageUrl ?? ''}
-        alt="피팅 결과"
+        alt={messages.result}
         draggable={false}
         style={{ clipPath: `inset(0 0 0 ${dividerPercent}%)` }}
       />
       <span className="fitting-compare-tag fitting-compare-tag-left" aria-hidden="true">
-        원본
+        {messages.original}
       </span>
       <span className="fitting-compare-tag fitting-compare-tag-right" aria-hidden="true">
-        피팅 결과
+        {messages.result}
       </span>
       <div
         className="fitting-compare-handle"
         role="slider"
         tabIndex={0}
-        aria-label="원본과 피팅 결과 비교"
+        aria-label={messages.compare}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(dividerPercent)}

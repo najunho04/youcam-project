@@ -1,19 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { AuthRequest } from '../../common/type'
-import { ErrorCode } from '../../common/type'
-import { ApiError } from '../../shared/api'
+import { ApiError, describeError } from '../../shared/api'
+import type { Language } from '../../shared/i18n'
+import { useLanguage } from '../../shared/i18n'
 import { Button } from '../../shared/ui'
+import { AUTH_MESSAGES } from './messages'
 
-const ERROR_MESSAGES: Partial<Record<ErrorCode, string>> = {
-  [ErrorCode.NICKNAME_TAKEN]: '이미 사용 중인 닉네임입니다',
-  [ErrorCode.INVALID_CREDENTIALS]: '닉네임 또는 비밀번호가 올바르지 않습니다',
-  [ErrorCode.VALIDATION_ERROR]: '닉네임은 2~20자, 비밀번호는 4~72자로 입력해 주세요',
-}
-
-function toErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) return ERROR_MESSAGES[error.code] ?? error.message
-  return '요청에 실패했습니다'
+function toErrorMessage(error: unknown, language: Language): string {
+  const formErrorMessage = error instanceof ApiError ? AUTH_MESSAGES[language].form.errors[error.code] : undefined
+  return formErrorMessage ?? describeError(error, language)
 }
 
 /** 가입·로그인 공용 폼. 제출 중 버튼 비활성, 실패 시 폼 아래 에러 메시지. */
@@ -28,6 +24,8 @@ export function AuthForm({
   const [password, setPassword] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const language = useLanguage()
+  const messages = AUTH_MESSAGES[language].form
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -36,7 +34,7 @@ export function AuthForm({
     try {
       await onSubmit({ nickname, password })
     } catch (error) {
-      setErrorMessage(toErrorMessage(error))
+      setErrorMessage(toErrorMessage(error, language))
       setIsSubmitting(false)
     }
   }
@@ -46,7 +44,7 @@ export function AuthForm({
       <div>
         <div className="grouped-list">
           <label className="grouped-field">
-            <span>닉네임</span>
+            <span>{messages.nickname}</span>
             <input
               name="nickname"
               value={nickname}
@@ -55,11 +53,11 @@ export function AuthForm({
               maxLength={20}
               required
               autoComplete="username"
-              placeholder="2~20자"
+              placeholder={messages.nicknamePlaceholder}
             />
           </label>
           <label className="grouped-field">
-            <span>비밀번호</span>
+            <span>{messages.password}</span>
             <input
               name="password"
               type="password"
@@ -69,7 +67,7 @@ export function AuthForm({
               maxLength={72}
               required
               autoComplete="current-password"
-              placeholder="4자 이상"
+              placeholder={messages.passwordPlaceholder}
             />
           </label>
         </div>

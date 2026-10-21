@@ -3,22 +3,19 @@ import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ErrorCode } from '../../common/type'
 import type { SwipeAnswer, SwipeCardDto } from '../../common/type'
-import { ApiError } from '../../shared/api'
+import { ApiError, useDescribeError } from '../../shared/api'
+import { useMessages } from '../../shared/i18n'
 import { ROUTES } from '../../shared/navigation'
 import { Button, EmptyState, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
 import { fetchSwipeCards, submitSwipeAnswers } from './api'
 import { SwipeCard, rotationOf } from './SwipeCard'
+import { SWIPE_MESSAGES } from './messages'
 import './swipe.css'
 
 const CARD_COUNT = 20
-const PAGE_TITLE = '취향 스와이프'
 
 /** 답한 뒤 화면 밖으로 날아가는 직전 카드 (장식용, 보조기술에서 숨김). */
 type ExitingCard = { card: SwipeCardDto; liked: boolean; releaseOffsetX: number; sequence: number }
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '요청에 실패했습니다'
-}
 
 function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401
@@ -31,6 +28,8 @@ function isProfileRequired(error: unknown): boolean {
 /** 상의 카드를 한 장씩 좋아요/싫어요. 마지막 카드 후 답변을 한 번에 제출하고 옷장 사진 화면으로 보낸다. */
 export function SwipePage() {
   const navigate = useNavigate()
+  const messages = useMessages(SWIPE_MESSAGES)
+  const describeError = useDescribeError()
   const [cards, setCards] = useState<SwipeCardDto[] | null>(null)
   const [loadError, setLoadError] = useState<unknown>(null)
   const [requestCount, setRequestCount] = useState(0)
@@ -73,7 +72,7 @@ export function SwipePage() {
         navigate(ROUTES.login, { replace: true })
         return
       }
-      setSubmitErrorMessage(toErrorMessage(error))
+      setSubmitErrorMessage(describeError(error))
       setIsSubmitting(false)
     }
   }
@@ -106,14 +105,14 @@ export function SwipePage() {
 
   if (loadError !== null) {
     return (
-      <PageLayout title={PAGE_TITLE}>
+      <PageLayout title={messages.title}>
         {isProfileRequired(loadError) ? (
           <>
-            <EmptyState message={toErrorMessage(loadError)} />
-            <Button onClick={() => navigate(ROUTES.profile)}>프로필 입력하기</Button>
+            <EmptyState message={describeError(loadError)} />
+            <Button onClick={() => navigate(ROUTES.profile)}>{messages.goToProfile}</Button>
           </>
         ) : (
-          <ErrorMessage message={toErrorMessage(loadError)} onRetry={handleRetryLoad} />
+          <ErrorMessage message={describeError(loadError)} onRetry={handleRetryLoad} />
         )}
       </PageLayout>
     )
@@ -121,7 +120,7 @@ export function SwipePage() {
 
   if (cards === null) {
     return (
-      <PageLayout title={PAGE_TITLE}>
+      <PageLayout title={messages.title}>
         <Loading />
       </PageLayout>
     )
@@ -129,16 +128,16 @@ export function SwipePage() {
 
   if (cards.length === 0) {
     return (
-      <PageLayout title={PAGE_TITLE}>
-        <EmptyState message="지금 보여줄 카드가 없어요" />
+      <PageLayout title={messages.title}>
+        <EmptyState message={messages.noCards} />
       </PageLayout>
     )
   }
 
   if (answers.length === cards.length) {
     return (
-      <PageLayout title={PAGE_TITLE}>
-        {isSubmitting && <Loading message="저장 중…" />}
+      <PageLayout title={messages.title}>
+        {isSubmitting && <Loading message={messages.saving} />}
         {submitErrorMessage && <ErrorMessage message={submitErrorMessage} onRetry={() => void submit(answers)} />}
       </PageLayout>
     )
@@ -149,7 +148,7 @@ export function SwipePage() {
   const underCardScale = 0.94 + 0.06 * dragProgress
   return (
     <PageLayout step={{ current: answers.length + 1, total: cards.length }}>
-      <h1 className="visually-hidden">{PAGE_TITLE}</h1>
+      <h1 className="visually-hidden">{messages.title}</h1>
       <div className="swipe-deck">
         {nextCard && (
           <div
@@ -180,21 +179,21 @@ export function SwipePage() {
         )}
       </div>
       <div className="swipe-actions">
-        <button type="button" className="swipe-round-button" aria-label="싫어요" onClick={() => handleAnswer(false)}>
+        <button type="button" className="swipe-round-button" aria-label={messages.dislike} onClick={() => handleAnswer(false)}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--color-nope)" strokeWidth="2.6" strokeLinecap="round">
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
-        <button type="button" className="swipe-round-button" aria-label="좋아요" onClick={() => handleAnswer(true)}>
+        <button type="button" className="swipe-round-button" aria-label={messages.like} onClick={() => handleAnswer(true)}>
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="var(--color-like)">
             <path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.4h2c.7-1.2 2.2-2.4 4.3-2.4 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" />
           </svg>
         </button>
       </div>
       <p className="footnote swipe-hint">
-        카드를 좌우로 밀거나 버튼을 눌러요
+        {messages.hint}
         <span className="swipe-hint-keyboard">
-          {' · 키보드 '}
+          {messages.keyboard}
           <kbd>←</kbd>
           <kbd>→</kbd>
         </span>

@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import type { PointerEvent } from 'react'
 import type { SwipeCardDto } from '../../common/type'
+import { useMessages } from '../../shared/i18n'
+import { SWIPE_MESSAGES } from './messages'
 
 const CONFIRM_DISTANCE_RATIO = 0.3
 const ROTATION_DEGREES_PER_PIXEL = 0.05
@@ -58,6 +60,7 @@ export function SwipeCard({
   onAnswer: (liked: boolean, releaseOffsetX: number) => void
   onDragProgress?: (progress: number) => void
 }) {
+  const messages = useMessages(SWIPE_MESSAGES)
   const [offsetX, setOffsetX] = useState(0)
   const [offsetY, setOffsetY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
@@ -126,7 +129,7 @@ export function SwipeCard({
   return (
     <div
       role="group"
-      aria-label="상의 카드"
+      aria-label={messages.card}
       className={`swipe-card${isDragging ? ' is-dragging' : ''}`}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -134,7 +137,7 @@ export function SwipeCard({
       onPointerCancel={handlePointerCancel}
       style={{ transform: `translateX(${offsetX}px) translateY(${offsetY}px) rotate(${rotationOf(offsetX)}deg)` }}
     >
-      <img src={card.imageUrl} alt="상의 이미지" draggable={false} />
+      <img src={card.imageUrl} alt={messages.cardImage} draggable={false} />
       <span
         className="swipe-stamp swipe-stamp-like"
         aria-hidden="true"

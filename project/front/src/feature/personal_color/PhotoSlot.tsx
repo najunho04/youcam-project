@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { ChangeEvent } from 'react'
+import { useMessages } from '../../shared/i18n'
+import { PERSONAL_COLOR_MESSAGES } from './messages'
 
 /** 사진 1칸: 미리보기 썸네일 + 가이드 + 파일 선택/촬영 버튼. */
 export function PhotoSlot({
@@ -15,6 +17,7 @@ export function PhotoSlot({
   disabled: boolean
   onSelect: (file: File | null) => void
 }) {
+  const messages = useMessages(PERSONAL_COLOR_MESSAGES)
   const previewUrl = useMemo(() => (selectedFile ? URL.createObjectURL(selectedFile) : null), [selectedFile])
 
   useEffect(() => {
@@ -30,13 +33,13 @@ export function PhotoSlot({
   return (
     <section className="photo-slot">
       <div className={`photo-slot-thumbnail${previewUrl ? ' is-filled' : ''}`}>
-        {previewUrl ? <img src={previewUrl} alt={`${label} 미리보기`} /> : <span aria-hidden="true">＋</span>}
+        {previewUrl ? <img src={previewUrl} alt={messages.preview(label)} /> : <span aria-hidden="true">＋</span>}
       </div>
       <div className="photo-slot-body">
         <h2 className="headline">{label}</h2>
         <p className="footnote">{guide}</p>
         <label className={`button ${previewUrl ? 'button-secondary' : 'button-tinted'} button-small photo-slot-picker`}>
-          {`${label} 선택`}
+          {messages.select(label)}
           <input
             type="file"
             accept="image/*"

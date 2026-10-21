@@ -6,8 +6,13 @@ import { ErrorCode, Season, Style } from '../../../src/common/type'
 import type { RecommendationItem, RecommendationResponse } from '../../../src/common/type'
 import { RecommendationPage } from '../../../src/feature/recommendation'
 import { tokenStorage } from '../../../src/shared/auth'
+import { setLanguage } from '../../../src/shared/i18n'
 import { ROUTES } from '../../../src/shared/navigation'
 import { stubFetch } from './fetchStub'
+
+// 이 파일의 명세는 한국어 화면 기준이다. 영어 화면은 *.english.test.tsx 에서 확인한다.
+beforeEach(() => setLanguage('ko'))
+afterEach(() => setLanguage('en'))
 
 function recommendationItem(productId: number, reasonTags: string[]): RecommendationItem {
   return {

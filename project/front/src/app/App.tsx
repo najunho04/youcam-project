@@ -8,13 +8,17 @@ import { RecommendationPage } from '../feature/recommendation'
 import { SwipePage } from '../feature/swipe'
 import { WardrobePage } from '../feature/wardrobe'
 import { RequireAuth } from '../shared/auth'
+import { useMessages } from '../shared/i18n'
 import { ROUTES } from '../shared/navigation'
 import { EmptyState, PageLayout } from '../shared/ui'
 
+const NOT_READY_MESSAGES = { en: 'This page is not ready yet.', ko: '준비 중인 화면입니다' }
+
 function NotReadyPage() {
+  const message = useMessages(NOT_READY_MESSAGES)
   return (
     <PageLayout title="ColorFit">
-      <EmptyState message="준비 중인 화면입니다" />
+      <EmptyState message={message} />
     </PageLayout>
   )
 }
