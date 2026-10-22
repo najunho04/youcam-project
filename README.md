@@ -1,8 +1,16 @@
 # 🚦 수직적 피쳐 슬라이스 하네스 (Vertical Feature Slicing Harness)
 
-> "I/O를 중심으로 기능마다 하나의 Function처럼 슬라이스한 Feature"를 기반으로 프로젝트를 구현하기 위한 AI 코딩 하네스 템플릿.
+> "I/O를 중심으로 기능마다 하나의 Function처럼 슬라이스한 Feature"를 기반으로 프로젝트를 구현하기 위한 1인 개발 최적화 하네스 템플릿.
 
 이 레포는 **템플릿**입니다. `Use this template`으로 복제해서 씁니다.
+
+최상위 경로는 관리자 세션으로 /project-all-docs와 /project 전체를 관리&편집이 가능합니다. 
+
+/project 세션은 슬라이스 테스트&구현 세션입니다. 테스트&구현 세션은 상위경로를 볼 수 없고, /shared 등 특정 경로의 수정이 불가합니다.
+
+이 하네스의 목적은 프로젝트를 공용 로직(foundation) 위에서 수직적 슬라이스로 나눠 격리한 채 각각 구현하여 1) 최소 컨텍스트를 통한 환각/망각 이슈 해소, 2) 최소 컨텍스트를 통한 환각/망각 이슈 해소, 3) 결정론적 검증 및 하네스 등의 이점을 제공합니다.
+
+
 
 ## 시작하기
 
@@ -17,15 +25,15 @@ cd project && make setup     # git 훅 연결. 1회
 | 1 | [`project/Makefile`](project/Makefile) | `dev` `test` `test-slice` `test-e2e` `lint` 5개의 `TODO`를 스택 명령으로 교체 |
 | 2 | 린트 룰 파일 (스택별) | "다른 `feature/` 폴더 import 금지" 규칙 1개 작성. 실행 명령은 1번의 `lint:` 밑에 |
 
-**이게 스택 커스텀의 전부다.** 나머지(`CLAUDE.md`, `.claude/settings.json`, `.githooks/`, 디렉토리 구조)는 경로 기반이라 언어 무관. 스택별 예시는 [project/docs/stack-guide.md](project/docs/stack-guide.md).
+**이게 언어별 스택 커스텀의 전부다.** 나머지(`CLAUDE.md`, `.claude/settings.json`, `.githooks/`, 디렉토리 구조)는 경로 기반이라 언어 무관. 스택별 예시는 [project/docs/stack-guide.md](project/docs/stack-guide.md).
 
 그 다음:
 
 1. `project-all-docs/`에 `api.md`, `erd.md`, `feature-graph.md` 작성 (사람)
 2. 도출된 엔티티·DTO·enum을 `project/*/src/common/`에 코드로 내려놓기
 3. 슬라이스마다 `project-all-docs/context-card/_template.md` 복사해 카드 작성. **빈칸이 남으면 설계가 덜 된 것**
-4. `project/`에서 세션 열기 → [`test-session.md`](project/docs/prompts/test-session.md) 프롬프트 + 카드로 계약 테스트 작성 → 승인 → 동결
-5. [`implementation-session.md`](project/docs/prompts/implementation-session.md) 프롬프트 + 카드로 구현 세션
+4. `project/`에서 세션 열기 → [`test-session.md`](project/docs/prompts/test-session.md) 프롬프트 + 카드로 계약 테스트 작성 → 사람(혹은 관리자 세션) 승인 → 동결(구현 세션은 수정 불가)
+5. [`implementation-session.md`](project/docs/prompts/implementation-session.md) 프롬프트 + 카드로 구현 세션 + 계약 테스트 실행 후 보고
 6. `project-all-docs/checklist.md` 전부 통과하면 머지
 
 ---
@@ -40,9 +48,10 @@ cd project && make setup     # git 훅 연결. 1회
 
 1. **세션에는 전체 맥락 대신 해당 피쳐 + 앞뒤 맥락만** — I/O 계약, 사용 테이블, 상하류, 레퍼런스 슬라이스만 넣는다.
 2. **피쳐는 무조건 세로로 자른다** — 클라이언트 요청 → 백엔드 → 클라이언트 출력까지가 한 슬라이스. 가로(프론트/백)로 잘라야 할 만큼 크면 슬라이스를 잘못 잡은 것.
-3. **중간중간 하네스로 조인다** — 방치하고 결과만 받지 않는다. 실수가 나올 때마다 원인을 기계적으로 막는다.
-4. **TC로 결정론적 검증** — 판정 기준은 통과/실패 값. 채점 기준은 에이전트 쓰기 권한 밖에 둔다.
-5. **루프 엔지니어링** — N개 피쳐마다 개선 루프. 기준을 넘을 때까지 반복하되 M회 도달 시 중단 후 로그 출력.
+3. **각 슬라이스는 무조건 다른 슬라이스에 의존하지 않는다** - 슬라이스가 필요한 의존성은 전부 /shared에 존재한다. 슬라이스 간의 임의 의존성 부여 시 (ex import) git-hook으로 결정론적 대응. 이 경우에는 사용자가 의존 그래프를 재고한다.
+4. **중간중간 하네스로 조인다** — 방치하고 결과만 받지 않는다. 실수가 나올 때마다 원인을 기계적으로 막는다.
+5. **TC로 결정론적 검증** — 판정 기준은 통과/실패 값. 채점 기준은 에이전트 쓰기 권한 밖에 둔다.
+6. **루프 엔지니어링** — N개 피쳐마다 개선 루프. 기준을 넘을 때까지 반복하되 M회 도달 시 중단 후 로그 출력.
 
 ---
 
@@ -118,8 +127,8 @@ cd project && make setup     # git 훅 연결. 1회
 2. **API · ERD 문서화** — 사람이 조망하는 용도. 여기서 나온 타입/DTO/enum은 `common/`에 코드로 내려놓음
 3. **의존 그래프** — 순서·병렬 묶음 정리. 시각화는 사람용, 상하류 한 줄은 세션 프롬프트로
 4. **테스트 세션** — 깨끗한 세션이 명세만 보고 계약 테스트 작성 → 사람 승인 → 동결
-5. **구현 세션** — 피쳐별 세션. 의존 없는 것끼리 병렬 (1인 기준 동시 2~3개 상한)
-6. **루프 엔지니어링** — 슬라이스별 1회 + 통합 후 1회
+5. **구현 세션** — 피쳐별 세션. 의존 없는 것끼리 N개 세선에서 병렬 구현 
+6. **루프 엔지니어링** — 사용자 임의로 실행. 다만 사용자가 구체적인 metric으로 종료 시점과 목표를 언급할 것 
 7. **E2E + 육안 확인** — 슬라이스 완료 게이트
 
 ---
@@ -161,7 +170,7 @@ API 계약 테스트가 타입 공유의 빈자리를 메운다. 백엔드/프�
 
 1인이 세션 3개를 눈으로 볼 수는 없다. **git hook, 린트 룰, 파일 권한처럼 기계가 막는 쪽으로 최대한 옮긴다.**
 
-### 기계적 강제
+### 기계적 강제(테스트&구현 세션에만 해당)
 
 `CLAUDE.md`는 강제력이 없다. 실제 차단은 두 지점, 두 등급.
 
