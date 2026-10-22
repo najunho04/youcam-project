@@ -28,7 +28,9 @@ function renderPersonalColorPage() {
 
 async function selectBothPhotosAndAnalyze() {
   await userEvent.upload(screen.getByLabelText('Choose face photo'), new File(['image'], 'face.jpg', { type: 'image/jpeg' }))
+  await screen.findByRole('img', { name: 'Face photo preview' })
   await userEvent.upload(screen.getByLabelText('Choose upper-body photo'), new File(['image'], 'body.png', { type: 'image/png' }))
+  await screen.findByRole('img', { name: 'Upper-body photo preview' })
   await userEvent.click(screen.getByRole('button', { name: 'Analyze' }))
 }
 

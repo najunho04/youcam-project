@@ -51,7 +51,9 @@ function analyzeButton(): HTMLElement {
 
 async function selectBothPhotos() {
   await userEvent.upload(selfieInput(), imageFile('face.jpg'))
+  await screen.findByRole('img', { name: '얼굴 사진 미리보기' })
   await userEvent.upload(bodyImageInput(), imageFile('body.png', 'image/png'))
+  await screen.findByRole('img', { name: '상반신 사진 미리보기' })
 }
 
 describe('PersonalColorPage', () => {
@@ -85,10 +87,10 @@ describe('PersonalColorPage', () => {
 
     expect(analyzeButton()).toBeDisabled()
     await userEvent.upload(selfieInput(), imageFile('face.jpg'))
-    expect(screen.getByRole('img', { name: '얼굴 사진 미리보기' })).toHaveAttribute('src', 'blob:face.jpg')
+    expect(await screen.findByRole('img', { name: '얼굴 사진 미리보기' })).toHaveAttribute('src', 'blob:face.jpg')
     expect(analyzeButton()).toBeDisabled()
     await userEvent.upload(bodyImageInput(), imageFile('body.png', 'image/png'))
-    expect(screen.getByRole('img', { name: '상반신 사진 미리보기' })).toHaveAttribute('src', 'blob:body.png')
+    expect(await screen.findByRole('img', { name: '상반신 사진 미리보기' })).toHaveAttribute('src', 'blob:body.png')
     expect(analyzeButton()).toBeEnabled()
   })
 
@@ -189,5 +191,74 @@ describe('PersonalColorPage', () => {
 
     expect(await screen.findByText('로그인 화면')).toBeInTheDocument()
     expect(tokenStorage.get()).toBeNull()
+  })
+
+  describe('카메라가 있는 브라우저', () => {
+    function stubCamera(getUserMedia: () => Promise<MediaStream>) {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn(getUserMedia) } })
+    }
+
+    afterEach(() => {
+      Reflect.deleteProperty(navigator, 'mediaDevices')
+    })
+
+    it('사진 칸마다 가이드 촬영 버튼과 파일 업로드를 함께 보여주고, 촬영 버튼을 누르면 가이드 촬영 창을 연다', async () => {
+      stubCamera(() => new Promise<MediaStream>(() => {}))
+      renderPersonalColorPage()
+
+      expect(screen.getByRole('button', { name: '상반신 사진 촬영' })).toBeInTheDocument()
+      expect(selfieInput()).toHaveAttribute('type', 'file')
+      expect(selfieInput()).not.toHaveAttribute('capture')
+      expect(bodyImageInput()).toHaveAttribute('type', 'file')
+      await userEvent.click(screen.getByRole('button', { name: '얼굴 사진 촬영' }))
+
+      const dialog = screen.getByRole('dialog', { name: '얼굴 사진 촬영' })
+      expect(within(dialog).getByText('카메라를 켜는 중…')).toBeInTheDocument()
+      expect(within(dialog).getByText(/1080×1350/)).toBeInTheDocument()
+
+      await userEvent.click(within(dialog).getByRole('button', { name: '닫기' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('카메라가 있어도 칸에서 바로 파일을 올려 채울 수 있다', async () => {
+      stubCamera(() => new Promise<MediaStream>(() => {}))
+      renderPersonalColorPage()
+
+      await selectBothPhotos()
+
+      expect(screen.getByRole('img', { name: '얼굴 사진 미리보기' })).toHaveAttribute('src', 'blob:face.jpg')
+      expect(screen.getByRole('img', { name: '상반신 사진 미리보기' })).toHaveAttribute('src', 'blob:body.png')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(analyzeButton()).toBeEnabled()
+    })
+
+    it('카메라 권한을 거부하면 사진 파일을 올려서 얼굴 칸을 채운다', async () => {
+      stubCamera(() => Promise.reject(new DOMException('denied', 'NotAllowedError')))
+      renderPersonalColorPage()
+
+      await userEvent.click(screen.getByRole('button', { name: '얼굴 사진 촬영' }))
+      const dialog = screen.getByRole('dialog', { name: '얼굴 사진 촬영' })
+      expect(await within(dialog).findByText(/카메라를 쓸 수 없어요/)).toBeInTheDocument()
+
+      await userEvent.upload(within(dialog).getByLabelText('사진 파일 올리기'), imageFile('face.jpg'))
+
+      expect(await screen.findByRole('img', { name: '얼굴 사진 미리보기' })).toHaveAttribute('src', 'blob:face.jpg')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('상반신 칸도 촬영 버튼으로 실루엣 가이드 촬영 창을 열고, 카메라를 못 쓰면 파일로 채운다', async () => {
+      stubCamera(() => Promise.reject(new DOMException('no camera', 'NotFoundError')))
+      renderPersonalColorPage()
+
+      await userEvent.click(screen.getByRole('button', { name: '상반신 사진 촬영' }))
+      const dialog = screen.getByRole('dialog', { name: '상반신 사진 촬영' })
+      expect(within(dialog).getByText(/실루엣에 맞춰/)).toBeInTheDocument()
+      expect(await within(dialog).findByText(/카메라를 쓸 수 없어요/)).toBeInTheDocument()
+
+      await userEvent.upload(within(dialog).getByLabelText('사진 파일 올리기'), imageFile('body.png', 'image/png'))
+
+      expect(await screen.findByRole('img', { name: '상반신 사진 미리보기' })).toHaveAttribute('src', 'blob:body.png')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 })

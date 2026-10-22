@@ -7,6 +7,10 @@ import { useMessages } from '../../shared/i18n'
 import { ROUTES } from '../../shared/navigation'
 import { Button, ErrorMessage, Loading, PageLayout } from '../../shared/ui'
 import { analyzePersonalColor } from './api'
+import { isCameraSupported, UploadedPhotoResult } from './camera'
+import { CaptureSubject, FACE_CAPTURE_GUIDE, UPPER_BODY_CAPTURE_GUIDE } from './captureGuides'
+import type { CaptureGuide } from './captureGuides'
+import { GuidedCaptureDialog } from './GuidedCaptureDialog'
 import { PhotoSlot } from './PhotoSlot'
 import { PERSONAL_COLOR_MESSAGES } from './messages'
 import './personal_color.css'
@@ -74,6 +78,40 @@ export function PersonalColorPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isFaceNotDetectedError, setIsFaceNotDetectedError] = useState(false)
   const [personalColor, setPersonalColor] = useState<PersonalColorDto | null>(null)
+  const [isCameraAvailable] = useState(isCameraSupported)
+  const [openCaptureSubject, setOpenCaptureSubject] = useState<CaptureSubject | null>(null)
+
+  function handleSelfieReady(file: File) {
+    setSelfie(file)
+    setIsFaceNotDetectedError(false)
+    setErrorMessage(null)
+  }
+
+  function handleBodyImageReady(file: File) {
+    setBodyImage(file)
+    setErrorMessage(null)
+  }
+
+  /** 카메라가 없는 브라우저에서 고른 사진도 촬영과 같은 규격(가이드 구도 1080×1350)으로 맞춘다. */
+  async function normalizeSelectedFile<Status extends string, CheckName extends string>(
+    file: File | null,
+    guide: CaptureGuide<Status, CheckName>,
+    notFoundMessage: string,
+    onReady: (file: File) => void,
+    onClear: () => void,
+  ) {
+    if (!file) {
+      onClear()
+      return
+    }
+    const normalized = await guide.normalizeUpload(file)
+    if (normalized.result === UploadedPhotoResult.NOT_FOUND) {
+      onClear()
+      setErrorMessage(notFoundMessage)
+      return
+    }
+    onReady(normalized.file)
+  }
 
   async function handleAnalyze() {
     if (!selfie || !bodyImage) return
@@ -120,18 +158,60 @@ export function PersonalColorPage() {
       }
     >
       <div className="photo-slot-list">
-        <PhotoSlot label={messages.selfieLabel} guide={messages.selfieGuide} selectedFile={selfie} disabled={isAnalyzing} onSelect={setSelfie} />
+        <PhotoSlot
+          label={messages.selfieLabel}
+          guide={messages.selfieGuide}
+          selectedFile={selfie}
+          disabled={isAnalyzing}
+          onSelect={(file) =>
+            normalizeSelectedFile(file, FACE_CAPTURE_GUIDE, messages.faceCapture.uploadNotFound, handleSelfieReady, () =>
+              setSelfie(null),
+            )
+          }
+          onCaptureRequest={isCameraAvailable ? () => setOpenCaptureSubject(CaptureSubject.FACE) : undefined}
+        />
         <PhotoSlot
           label={messages.bodyImageLabel}
           guide={messages.bodyImageGuide}
           selectedFile={bodyImage}
           disabled={isAnalyzing}
-          onSelect={setBodyImage}
+          onSelect={(file) =>
+            normalizeSelectedFile(
+              file,
+              UPPER_BODY_CAPTURE_GUIDE,
+              messages.upperBodyCapture.uploadNotFound,
+              handleBodyImageReady,
+              () => setBodyImage(null),
+            )
+          }
+          onCaptureRequest={isCameraAvailable ? () => setOpenCaptureSubject(CaptureSubject.UPPER_BODY) : undefined}
         />
       </div>
       {isAnalyzing && <Loading message={messages.analyzing} />}
       {isFaceNotDetectedError && <ErrorMessage message={`${messages.faceNotDetected} (${messages.selfieGuide})`} />}
       {errorMessage && <ErrorMessage message={errorMessage} />}
+      {openCaptureSubject === CaptureSubject.FACE && (
+        <GuidedCaptureDialog
+          guide={FACE_CAPTURE_GUIDE}
+          copy={messages.faceCapture}
+          onComplete={(file) => {
+            handleSelfieReady(file)
+            setOpenCaptureSubject(null)
+          }}
+          onClose={() => setOpenCaptureSubject(null)}
+        />
+      )}
+      {openCaptureSubject === CaptureSubject.UPPER_BODY && (
+        <GuidedCaptureDialog
+          guide={UPPER_BODY_CAPTURE_GUIDE}
+          copy={messages.upperBodyCapture}
+          onComplete={(file) => {
+            handleBodyImageReady(file)
+            setOpenCaptureSubject(null)
+          }}
+          onClose={() => setOpenCaptureSubject(null)}
+        />
+      )}
     </PageLayout>
   )
 }

@@ -5,7 +5,8 @@
 .photo-slot-thumbnail.is-filled { border: 0; }
 .photo-slot-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
 .photo-slot-body { display: grid; gap: 4px; justify-items: start; }
-.photo-slot-picker { width: auto; margin-top: 6px; position: relative; }
+.photo-slot-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.photo-slot-picker { width: auto; position: relative; }
 .photo-slot-picker:has(input:disabled) { opacity: 0.35; pointer-events: none; }
 .photo-slot-picker:has(input:focus-visible) { outline: 3px solid var(--color-accent); outline-offset: 2px; }
 
@@ -30,6 +31,40 @@
 .personal-color-palette { display: grid; gap: 16px; padding-top: 8px; }
 .personal-color-palette .palette-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 
+/* 가이드 촬영 창(얼굴 타원 · 상반신 실루엣): 왼쪽 4:5 카메라 · 오른쪽 안내와 체크리스트. 미리보기와 촬영 사진은 거울 모습이다. */
+.capture-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 32px; background: rgba(5, 5, 5, 0.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); animation: capture-fade 220ms var(--ease-out) both; }
+.capture-dialog { --stage-width: min(calc(80vh * 0.8), 560px); display: grid; grid-template-columns: var(--stage-width) minmax(280px, 340px); gap: 48px; align-items: start; max-width: 100%; }
+.capture-stage { --hold-progress: 0; position: relative; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--radius-large); background: var(--color-ink); }
+.capture-video, .capture-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.capture-video { transform: scaleX(-1); }
+.capture-video.is-hidden { visibility: hidden; }
+.capture-photo { animation: capture-fade 260ms var(--ease-out) both; }
+.capture-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.capture-shade { fill: rgba(5, 5, 5, 0.68); }
+.capture-outline { fill: none; stroke: rgba(244, 244, 244, 0.9); stroke-width: 5; stroke-linejoin: round; transition: stroke 200ms var(--ease-out); }
+.capture-overlay.is-ready .capture-outline { stroke: rgba(244, 244, 244, 0.3); }
+.capture-outline-progress { fill: none; stroke: var(--color-like); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--hold-progress)); }
+
+.capture-panel { display: grid; gap: 12px; align-content: start; padding-top: 4px; }
+.capture-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.capture-close { width: auto; margin-right: -14px; }
+.capture-title { margin: 8px 0 0; font-size: clamp(2rem, 3vw, 2.75rem); line-height: 0.95; letter-spacing: -0.05em; font-weight: 500; }
+.capture-status { margin: 20px 0 4px; font-size: 22px; line-height: 1.2; letter-spacing: -0.03em; color: var(--color-text); }
+.capture-status.is-ready { color: var(--color-like); }
+.capture-checks { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border); }
+.capture-checks li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-border); font-size: 13px; color: var(--color-muted); transition: color 200ms var(--ease-out); }
+.capture-checks li.is-passed { color: var(--color-text); }
+.capture-check-mark { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--color-faint); transition: background 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+.capture-checks li.is-passed .capture-check-mark { background: var(--color-like); box-shadow: none; }
+.capture-actions { display: grid; gap: 8px; margin-top: 12px; }
+.capture-upload { position: relative; }
+.capture-upload:has(input:disabled) { opacity: 0.35; pointer-events: none; }
+.capture-upload:has(input:focus-visible) { outline: 1px solid var(--color-accent); outline-offset: 3px; }
+@keyframes capture-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .capture-backdrop, .capture-photo { animation: none; }
+}
+
 @media (max-width: 767px) {
   .photo-slot-list { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .photo-slot { grid-template-columns: 96px 1fr; align-items: center; gap: 14px; padding: 12px; border-radius: var(--radius-medium); }
@@ -39,4 +74,6 @@
   .season-card-face { top: 16px; right: 16px; bottom: auto; width: 72px; height: 88px; }
   .season-card-name { font-size: 40px; }
   .season-card-description { max-width: calc(100% - 96px); font-size: 14px; }
+  .capture-backdrop { padding: 16px; overflow-y: auto; place-items: start center; }
+  .capture-dialog { grid-template-columns: minmax(0, 1fr); gap: 20px; width: 100%; }
 }
