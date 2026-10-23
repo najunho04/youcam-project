@@ -19,6 +19,7 @@ services:
 
   backend:
     profiles: ["prod"]
+    image: ${BACKEND_IMAGE:-colorfit-backend:local}  # EC2 는 CD 가 ECR 이미지 주소를 넣어 pull 한다
     build: ./backend
     env_file: .env
     volumes:

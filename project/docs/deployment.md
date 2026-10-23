@@ -42,15 +42,15 @@
 | 인스턴스 | `i-0f2714f3bf31fbd5b` (`colorfit-backend`), t3.small, Ubuntu 24.04, gp3 10GB, 서울 |
 | Elastic IP / 호스트 | `3.35.152.198` / `3-35-152-198.sslip.io` (Caddy 가 Let's Encrypt 인증서 자동 발급) |
 | 보안 그룹 | `colorfit-backend` (`sg-0a692713d3dc81853`): 80·443 전체, 22 는 관리자 IP 만 |
-| IAM 롤 | `colorfit-ec2-role`: S3 버킷 객체 읽기·쓰기·삭제 + `AmazonSSMManagedInstanceCore` |
+| IAM 롤 | `colorfit-ec2-role`: S3 버킷 객체 읽기·쓰기·삭제 + ECR `colorfit-backend` pull + `AmazonSSMManagedInstanceCore` |
 | SSH | `ssh -i ~/.ssh/colorfit-ec2.pem ubuntu@3.35.152.198` |
 | 스왑 | 1GB. RAM(2GB)이 꽉 차면 디스크를 비상 메모리로 써서 OOM 강제 종료를 막는 보험 |
 
 - 서버 경로: `/home/ubuntu/colorfit` (`backend/`, `docker-compose.yml`, `Caddyfile`, `.env`)
-- 기동: `docker compose --profile prod up -d --build backend caddy`. 로컬 DB 컨테이너(`db`)는 띄우지 않는다.
+- 기동은 CD 가 한다 (ECR 이미지 pull → `docker compose --profile prod up -d --no-build backend caddy`). 로컬 DB 컨테이너(`db`)는 띄우지 않는다.
 - 디스크 10GB 에 맞추려고 두 가지를 했다.
   - Docker 를 overlay2 저장소로 바꿨다(`/etc/docker/daemon.json` 의 `containerd-snapshotter: false`). 기본값인 containerd 저장소는 이미지를 두 벌 저장한다.
-  - `uv sync --no-cache` 로 빌드해서 백엔드 이미지가 약 1.4GB 다.
+  - `uv sync --no-cache` 로 빌드해서 백엔드 이미지가 약 1.4GB 다. 빌드는 GitHub Actions 에서 하므로 EC2 에 빌드 캐시가 쌓이지 않는다.
 - 공간이 모자라면 `docker builder prune -af && docker image prune -af` 를 실행한다.
 
 ### `.env` (EC2, 레포에 없음)
@@ -76,15 +76,37 @@
 | 워크플로 | 시점 | 내용 |
 |---|---|---|
 | `ci.yml` | push(main), PR | backend: pgvector 서비스 컨테이너 + import-linter + pytest / front: eslint + vitest + build |
-| `deploy-backend.yml` | main 의 CI 통과 후, 수동 실행 | GitHub OIDC 로 AWS 롤을 받는다 → 소스 tar 를 S3 `deploy/` 에 올린다 → SSM Run Command 로 EC2 에서 빌드·재기동한다 (인바운드 SSH 불필요) |
+| `deploy-backend.yml` | main 의 CI 통과 후, 수동 실행 | GitHub OIDC 로 AWS 임시 권한을 받는다 → Actions 러너에서 이미지를 빌드해 ECR 에 push 한다 (태그 = 커밋 SHA) → SSM Run Command 로 EC2 가 pull 해서 재기동한다 (인바운드 SSH 불필요) |
 
 `deploy-backend.yml` 이 쓰는 저장소 Variables:
 
 | 이름 | 값 |
 |---|---|
-| `AWS_DEPLOY_ROLE_ARN` | GitHub OIDC 신뢰 롤 ARN (이 레포 main 만 허용, S3 `deploy/*` 쓰기 + 이 인스턴스에 SSM SendCommand) |
+| `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::844669501605:role/colorfit-github-deploy` (이 레포 main 만 허용. ECR `colorfit-backend` push + 이 인스턴스에 SSM SendCommand) |
 | `EC2_INSTANCE_ID` | `i-0f2714f3bf31fbd5b` |
-| `DEPLOY_BUCKET` | `youcamapi-hackathon-1013` |
+| `ECR_REPOSITORY` | `colorfit-backend` (최근 이미지 5개만 유지) |
+
+- 롤백: Actions 에서 이전 커밋으로 `Deploy backend` 를 다시 실행하거나, EC2 에서 `BACKEND_IMAGE=<ECR 주소>:<이전 SHA> docker compose --profile prod up -d --no-build backend` 를 실행한다.
+
+## 6. AWS 자원 정리 (해커톤 종료 후)
+
+모든 자원에 태그 `Project=youcam-project` 가 붙어 있다. IAM 은 리전 밖이라 태그 검색에 안 나오니 이름(`colorfit-*`)으로 지운다.
+
+| 자원 | 이름 / ID |
+|---|---|
+| EC2 인스턴스 (+ EBS, ENI) | `i-0f2714f3bf31fbd5b` |
+| Elastic IP | `eipalloc-095b89bc229b39583` (인스턴스 삭제 후 반드시 release. 남겨 두면 과금) |
+| 보안 그룹 | `sg-0a692713d3dc81853` |
+| 키 페어 | `colorfit-ec2` |
+| ECR | `colorfit-backend` |
+| IAM 롤 / 인스턴스 프로파일 | `colorfit-ec2-role`, `colorfit-github-deploy` / `colorfit-ec2-profile` |
+| S3 버킷 | `youcamapi-hackathon-1013` (사진 데이터 포함) |
+
+GitHub OIDC 공급자(`token.actions.githubusercontent.com`)는 다른 프로젝트와 같이 쓰므로 지우지 않는다.
+
+```bash
+aws resourcegroupstaggingapi get-resources --tag-filters Key=Project,Values=youcam-project --query 'ResourceTagMappingList[].ResourceARN'
+```
 
 ## 5. 배포 후 확인
 
@@ -103,6 +125,6 @@
 | EBS 10GB | 약 $1 |
 | Elastic IP (퍼블릭 IPv4) | 약 $3.6 |
 | Vercel Hobby, Neon Free | $0 |
-| S3 | 거의 $0 |
+| S3, ECR (이미지 5개) | 거의 $0 |
 
 해커톤이 끝나면 EC2 를 중지(stop)한다. 이때 디스크와 IP 요금만 나온다.
