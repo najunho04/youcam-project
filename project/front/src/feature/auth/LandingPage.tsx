@@ -7,10 +7,9 @@ import { ROUTES } from '../../shared/navigation'
 import { LanguageToggle, useMessages } from '../../shared/i18n'
 import './auth.css'
 import { fetchMe } from './api'
+import { LookWheel } from './LookWheel'
 import { AUTH_MESSAGES } from './messages'
 
-/** 메인 화면 전체를 채우는 3D 갤러리 (design-sample/web-main-sample.html 원본을 그대로 옮긴 정적 페이지) */
-const GALLERY_SOURCE = '/landing/gallery.html'
 
 /** 이어하기 이동 규칙: 프로필 → 퍼스널 컬러 → 추천 순으로 비어 있는 단계로 보낸다. */
 function getContinueRoute(user: UserDto): string {
@@ -20,10 +19,24 @@ function getContinueRoute(user: UserDto): string {
 }
 
 export function LandingPage() {
+  const navigate = useNavigate()
   const messages = useMessages(AUTH_MESSAGES).landing
   const [isLoggedIn, setIsLoggedIn] = useState(() => tokenStorage.get() !== null)
 
   const handleUnauthorized = useCallback(() => setIsLoggedIn(false), [])
+
+  /** 카드를 누르면: 로그인 상태면 CONTINUE 와 같은 단계로, 아니면(또는 토큰 만료면) 로그인 화면으로 */
+  async function handleStart() {
+    if (tokenStorage.get() === null) {
+      navigate(ROUTES.login)
+      return
+    }
+    try {
+      navigate(getContinueRoute(await fetchMe()))
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) navigate(ROUTES.login)
+    }
+  }
 
   function handleLogout() {
     tokenStorage.clear()
@@ -32,8 +45,8 @@ export function LandingPage() {
 
   return (
     <div className="landing">
-      <iframe className="landing-gallery" src={GALLERY_SOURCE} title={messages.galleryTitle} />
-      <h1 className="visually-hidden">ColorFit</h1>
+      <h1 className="landing-brand">ColorFit</h1>
+      <LookWheel onSelect={handleStart} selectLabel={messages.deckStart} hint={messages.deckHint} />
       <nav className="landing-menu" aria-label={messages.accountMenu}>
         {isLoggedIn ? (
           <LoggedInMenu onLogout={handleLogout} onUnauthorized={handleUnauthorized} />

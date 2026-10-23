@@ -3,12 +3,24 @@ import { ErrorCode } from '../../common/type'
 
 const ENGLISH = {
   landing: {
-    galleryTitle: 'ColorFit gallery',
+    deckStart: 'Get started with ColorFit looks',
+    deckHint: 'Click a card to start',
     accountMenu: 'Account',
     login: 'LOGIN',
     continue: 'CONTINUE',
     logout: 'LOGOUT',
     retry: 'RETRY',
+  },
+  lookDeck: {
+    label: 'ColorFit looks',
+    bringToFront: (lookName: string) => `Bring ${lookName} to the front`,
+    looks: [
+      'Gray tank top with wide jeans',
+      'Blue gingham shirt with brown trousers',
+      'Denim jacket with olive trousers',
+      'Zip hoodie with light jeans',
+      'Gray knit with brown slacks',
+    ],
   },
   login: {
     title: 'Log in',
@@ -39,12 +51,24 @@ const ENGLISH = {
 
 const KOREAN: typeof ENGLISH = {
   landing: {
-    galleryTitle: 'ColorFit 갤러리',
+    deckStart: 'ColorFit 코디로 시작하기',
+    deckHint: '카드를 눌러 시작하세요',
     accountMenu: '계정',
     login: '로그인',
     continue: '이어하기',
     logout: '로그아웃',
     retry: '다시 시도',
+  },
+  lookDeck: {
+    label: 'ColorFit 코디',
+    bringToFront: (lookName: string) => `${lookName} 카드를 가운데로`,
+    looks: [
+      '회색 나시와 와이드 청바지 코디',
+      '블루 깅엄 셔츠와 브라운 팬츠 코디',
+      '데님 재킷과 올리브 팬츠 코디',
+      '후드 집업과 연청 바지 코디',
+      '그레이 니트와 브라운 슬랙스 코디',
+    ],
   },
   login: {
     title: '로그인',

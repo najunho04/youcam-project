@@ -20,7 +20,8 @@ from shared.youcam import YouCamTaskStatus, get_youcam_client
 
 logger = logging.getLogger(__name__)
 
-# 이보다 오래된 PENDING 은 멈춘 작업으로 보고 다시 시작한다 (서버 YouCam 대기 120초 + 여유)
+# 이보다 오래된 PENDING 은 멈춘 작업으로 보고 다시 시작한다 (계약 고정값).
+# 서버의 YouCam 대기(YOUCAM_POLL_TIMEOUT_SECONDS=165)는 반드시 이보다 짧아야 한다. 길면 아직 기다리는 작업을 또 시작해 두 번 과금된다
 PENDING_RESTART_THRESHOLD = timedelta(minutes=3)
 _RESULT_KEY_PREFIX = "fittings"
 _RESULT_CONTENT_TYPE = "image/jpeg"

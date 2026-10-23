@@ -16,7 +16,7 @@ afterEach(() => setLanguage('en'))
 const PRODUCT_ID = 21
 const FITTING_ID = 7
 const POLLING_INTERVAL_MILLISECONDS = 2_000
-const POLLING_LIMIT_MILLISECONDS = 150_000
+const POLLING_LIMIT_MILLISECONDS = 200_000
 const LOADING_MESSAGE = '입혀보는 중'
 const TIMED_OUT_MESSAGE = '시간이 오래 걸리고 있어요'
 
@@ -150,7 +150,7 @@ describe('FittingPage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
-  it('150초가 지나도 PENDING 이면 폴링을 멈추고 "시간이 오래 걸리고 있어요" 와 다시 확인을 보여준다', async () => {
+  it('200초가 지나도 PENDING 이면 폴링을 멈추고 "시간이 오래 걸리고 있어요" 와 다시 확인을 보여준다', async () => {
     const { fetchMock } = stubFetch([created, fetchedPending])
     renderFittingPage()
     await settle()

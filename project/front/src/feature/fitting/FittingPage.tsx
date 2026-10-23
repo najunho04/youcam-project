@@ -13,9 +13,10 @@ import './fitting.css'
 
 const POLLING_INTERVAL_MILLISECONDS = 2_000
 // 서버 YouCam 대기 120초 + 여유 30초
-const POLLING_LIMIT_MILLISECONDS = 150_000
+// 서버가 YouCam 을 최대 165초 기다린 뒤 결과(DONE/FAILED)를 기록하므로 그보다 넉넉히 기다린다
+const POLLING_LIMIT_MILLISECONDS = 200_000
 
-/** 폴링 한 회차. 새 객체를 넣을 때마다 회차가 새로 시작된다 (150초 상한도 새로). */
+/** 폴링 한 회차. 새 객체를 넣을 때마다 회차가 새로 시작된다 (200초 상한도 새로). */
 type PollingRound = { fittingId: number; startsImmediately: boolean }
 
 function isUnauthorized(error: unknown): boolean {
@@ -23,8 +24,8 @@ function isUnauthorized(error: unknown): boolean {
 }
 
 /**
- * 진입 시 POST → PENDING 이면 GET 을 2초 간격으로 최대 150초 폴링한다. 화면을 떠나면 폴링을 멈춘다.
- * DONE: 원본/결과 비교 · FAILED: 상품 이미지와 다시 시도(POST) · 150초 초과: 다시 확인(GET 후 PENDING 이면 폴링 재개).
+ * 진입 시 POST → PENDING 이면 GET 을 2초 간격으로 최대 200초 폴링한다. 화면을 떠나면 폴링을 멈춘다.
+ * DONE: 원본/결과 비교 · FAILED: 상품 이미지와 다시 시도(POST) · 200초 초과: 다시 확인(GET 후 PENDING 이면 폴링 재개).
  */
 export function FittingPage() {
   const navigate = useNavigate()

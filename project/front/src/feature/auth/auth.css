@@ -1,9 +1,59 @@
 /* auth 슬라이스 전용: 랜딩 · 가입/로그인 폼 */
 
-/* ---------- 랜딩: 화면 전체를 갤러리(iframe)로 채우고, 계정 메뉴만 텍스트로 얹는다 ---------- */
-.landing { position: fixed; inset: 0; background: #0b0b0b; }
-.landing-gallery { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
-/* 갤러리 UI 와 같은 글씨·반전 합성 (밝은 카드 위에서도 보인다) */
+/* ---------- 랜딩: 다른 화면과 같은 먹색 바탕 · 흰 글씨 위 반원 코디 카드 + 왼쪽 계정 메뉴 ---------- */
+.landing { position: fixed; inset: 0; overflow: hidden; background: var(--color-base); color: var(--color-text); }
+.landing-brand {
+  position: fixed; top: 6px; left: 12px; z-index: 5; margin: 0;
+  font: 500 clamp(39px, 6.3vw, 118px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  letter-spacing: -0.065em; color: #fff; mix-blend-mode: difference; -webkit-font-smoothing: antialiased;
+}
+
+/* 반원 코디 카드: 화면 아래 먼 점을 축으로 카드를 부채꼴로 펼치고, 바퀴처럼 한 칸씩 돌려 메인 카드를 바꾼다 */
+.look-wheel {
+  --wheel-card-height: min(60vh, 560px);
+  --wheel-card-width: calc(var(--wheel-card-height) * 0.8);
+  --wheel-step-angle: 15deg;
+  --wheel-pivot-depth: 250%;
+  --wheel-spin-duration: 1500ms;
+  --wheel-spin-ease: cubic-bezier(0.65, 0.05, 0.25, 1);
+  --wheel-hold-duration: 3400ms;
+  /* 카드끼리의 z-index 를 이 안에 가둬 로고·메뉴(z-index 5) 아래에 둔다 */
+  position: absolute; inset: 0; z-index: 0;
+}
+.look-wheel-card {
+  position: absolute; left: 56%; top: 47%;
+  width: var(--wheel-card-width); height: var(--wheel-card-height);
+  margin: calc(var(--wheel-card-height) / -2) 0 0 calc(var(--wheel-card-width) / -2);
+  padding: 0; border: 0; border-radius: var(--radius-large); overflow: hidden; cursor: pointer;
+  background: #e8e2da; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform-origin: 50% var(--wheel-pivot-depth);
+  transition:
+    transform var(--wheel-spin-duration) var(--wheel-spin-ease),
+    filter var(--wheel-spin-duration) var(--wheel-spin-ease),
+    opacity calc(var(--wheel-spin-duration) * 0.7) var(--wheel-spin-ease);
+  will-change: transform, filter, opacity;
+}
+.look-wheel-card[aria-hidden='true'] { pointer-events: none; }
+.look-wheel-card img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; pointer-events: none; }
+.look-wheel-card:focus-visible { outline: 2px solid var(--color-text); outline-offset: 8px; }
+.look-wheel-caption {
+  position: absolute; left: 56%; bottom: 26px; translate: -50% 0; z-index: 20;
+  display: grid; justify-items: center; gap: 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.look-wheel-count { font-size: 11px; letter-spacing: 0.08em; color: var(--color-text); font-variant-numeric: tabular-nums; }
+.look-wheel-hint { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-muted); }
+/* 다음 카드가 돌아 들어오기까지 남은 시간 */
+.look-wheel-progress { display: block; width: 120px; height: 1px; background: var(--color-border); overflow: hidden; }
+.look-wheel-progress-fill {
+  display: block; height: 100%; background: var(--color-text); transform-origin: left;
+  animation: look-wheel-hold var(--wheel-hold-duration) linear both;
+}
+@keyframes look-wheel-hold { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .look-wheel-card { transition: opacity 300ms linear; }
+  .look-wheel-progress { display: none; }
+}
+/* 흰 글씨. 넘긴 카드가 지나갈 때도 읽히도록 반전 합성은 유지한다 (먹색 위에서는 그대로 흰색) */
 .landing-menu {
   position: fixed; left: 12px; top: 50%; translate: 0 -50%; z-index: 5;
   display: grid; justify-items: start; gap: 0.12em;
@@ -40,6 +90,23 @@
 
 .auth-form { display: grid; gap: 20px; }
 .auth-form-error { margin: 10px 0 0; font-size: 13px; color: var(--color-error); }
+
+/* ---------- 로그인: 왼쪽 폼 · 오른쪽 코디 일러스트 카드 덱 ---------- */
+.auth-split { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 72px; align-items: start; }
+.auth-split-form { display: grid; gap: 16px; align-content: start; }
+
+/* 로그인 화면의 반원 코디 카드: 메인과 같은 모션을 작게 · 반투명하게 (누를 수 없는 장식) */
+.look-wheel-compact {
+  --wheel-card-height: min(34vh, 290px);
+  --wheel-step-angle: 11deg;
+  position: relative; inset: auto; height: min(40vh, 340px); opacity: 0.55; pointer-events: none;
+}
+.look-wheel-compact .look-wheel-card { left: 50%; top: 46%; cursor: default; }
+
+@media (max-width: 767px) {
+  .auth-split { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .look-wheel-compact { --wheel-card-height: min(30vh, 240px); height: 360px; }
+}
 
 @media (max-width: 600px) {
   .landing-menu { left: 10px; }

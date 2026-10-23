@@ -2,16 +2,17 @@
 import { cropRectangleAroundAnchor, PHOTO_BRIGHTNESS, tiltDegrees } from './photoGuide'
 import type { GuideResult, Point, Rectangle } from './photoGuide'
 
-/** 화면에 그리는 얼굴 가이드 타원 (crop 비율 좌표). */
-export const FACE_GUIDE_OVAL = { centerX: 0.5, centerY: 0.42, radiusX: 0.27, radiusY: 0.28 }
+/** 화면에 그리는 얼굴 가이드 타원 (crop 비율 좌표). 얼굴이 화면을 거의 채우는 크기다. */
+export const FACE_GUIDE_OVAL = { centerX: 0.5, centerY: 0.46, radiusX: 0.39, radiusY: 0.405 }
 
 /**
  * 얼굴 박스 폭이 crop 폭에서 차지해야 하는 비율 범위와 크롭 기준값.
- * BlazeFace 박스는 눈썹~입, 양 볼 안쪽까지라 실제 얼굴보다 작다. 타원에 얼굴을 꽉 맞추면 약 0.4 가 된다.
+ * YouCam 피부톤 분석은 얼굴 폭이 사진 폭의 60% 를 넘어야 받는다 (넘지 않으면 error_face_position_too_small).
+ * BlazeFace 박스는 실제 얼굴 윤곽과 같거나 조금 작게 잡히므로, 박스가 60% 를 넘으면(minimum 초과) 실제 얼굴도 확실히 넘는다.
  */
-const FACE_WIDTH_RATIO = { minimum: 0.32, maximum: 0.5, target: 0.4 }
+const FACE_WIDTH_RATIO = { minimum: 0.6, maximum: 0.78, target: 0.66 }
 /** 얼굴 박스 중심(코 근처)이 와야 할 위치와 허용 오차 (crop 비율). 타원 중심보다 살짝 아래다. */
-const FACE_CENTER = { x: 0.5, y: 0.44, toleranceX: 0.06, toleranceY: 0.07 }
+const FACE_CENTER = { x: 0.5, y: 0.49, toleranceX: 0.06, toleranceY: 0.07 }
 /** 코가 두 눈 가운데에서 벗어난 정도 (눈 사이 거리 대비). 넘으면 고개를 돌린 것. */
 const MAXIMUM_YAW_RATIO = 0.22
 /** BlazeFace 눈 키포인트는 몇 도씩 흔들려서 너무 빡빡하게 잡지 않는다. */
@@ -58,7 +59,7 @@ export function evaluateFaceGuide(measurement: FaceMeasurement | null): FaceGuid
   const eyeDistance = Math.abs(leftEye.x - rightEye.x)
   const yawRatio = eyeDistance > 0 ? Math.abs(nose.x - eyeMiddleX) / eyeDistance : Infinity
 
-  const isTooFar = faceBox.width < FACE_WIDTH_RATIO.minimum
+  const isTooFar = faceBox.width <= FACE_WIDTH_RATIO.minimum
   const isTooClose = faceBox.width > FACE_WIDTH_RATIO.maximum
   const isTooDark = brightness < PHOTO_BRIGHTNESS.minimum
   const isTooBright = brightness > PHOTO_BRIGHTNESS.maximum

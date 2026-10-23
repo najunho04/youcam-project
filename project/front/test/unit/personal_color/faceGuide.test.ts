@@ -3,14 +3,14 @@ import { cropRectangleAroundFace, evaluateFaceGuide, FaceGuideStatus } from '../
 import type { FaceMeasurement } from '../../../src/feature/personal_color/faceGuide'
 import { PHOTO_HEIGHT, PHOTO_WIDTH, portraitCropRectangle } from '../../../src/feature/personal_color/photoGuide'
 
-/** 가이드 타원에 정면으로 잘 맞춘 얼굴 (crop 비율 좌표). */
+/** 가이드 타원에 정면으로 잘 맞춘 얼굴 (crop 비율 좌표). 얼굴 폭이 사진 폭의 66% 라 YouCam 조건(60% 초과)을 넘는다. */
 function wellFittedFace(overrides: Partial<FaceMeasurement> = {}): FaceMeasurement {
   return {
     faceCount: 1,
-    faceBox: { x: 0.3, y: 0.28, width: 0.4, height: 0.32 },
-    leftEye: { x: 0.59, y: 0.37 },
-    rightEye: { x: 0.41, y: 0.37 },
-    nose: { x: 0.5, y: 0.42 },
+    faceBox: { x: 0.17, y: 0.226, width: 0.66, height: 0.528 },
+    leftEye: { x: 0.625, y: 0.44 },
+    rightEye: { x: 0.375, y: 0.44 },
+    nose: { x: 0.5, y: 0.5 },
     brightness: 140,
     ...overrides,
   }
@@ -33,27 +33,33 @@ describe('evaluateFaceGuide', () => {
     expect(Object.values(result.checks).every(Boolean)).toBe(true)
   })
 
+  it('얼굴 폭이 사진 폭의 60% 이하면 YouCam 이 거절하므로 TOO_FAR', () => {
+    const result = evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.2, y: 0.27, width: 0.6, height: 0.48 } }))
+    expect(result.status).toBe(FaceGuideStatus.TOO_FAR)
+    expect(result.checks.distance).toBe(false)
+  })
+
   it('얼굴이 작으면 TOO_FAR, 크면 TOO_CLOSE', () => {
     expect(evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.4, y: 0.37, width: 0.2, height: 0.16 } })).status).toBe(
       FaceGuideStatus.TOO_FAR,
     )
-    expect(evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.1, y: 0.2, width: 0.8, height: 0.64 } })).status).toBe(
+    expect(evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.09, y: 0.17, width: 0.82, height: 0.656 } })).status).toBe(
       FaceGuideStatus.TOO_CLOSE,
     )
   })
 
   it('가이드 중심에서 벗어나면 OFF_CENTER', () => {
-    const result = evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.5, y: 0.28, width: 0.4, height: 0.32 } }))
+    const result = evaluateFaceGuide(wellFittedFace({ faceBox: { x: 0.3, y: 0.226, width: 0.66, height: 0.528 } }))
     expect(result.status).toBe(FaceGuideStatus.OFF_CENTER)
     expect(result.checks.position).toBe(false)
   })
 
   it('고개를 돌리면 NOT_FRONTAL', () => {
-    expect(evaluateFaceGuide(wellFittedFace({ nose: { x: 0.57, y: 0.42 } })).status).toBe(FaceGuideStatus.NOT_FRONTAL)
+    expect(evaluateFaceGuide(wellFittedFace({ nose: { x: 0.57, y: 0.5 } })).status).toBe(FaceGuideStatus.NOT_FRONTAL)
   })
 
   it('고개를 기울이면 NOT_FRONTAL', () => {
-    expect(evaluateFaceGuide(wellFittedFace({ leftEye: { x: 0.59, y: 0.41 }, rightEye: { x: 0.41, y: 0.33 } })).status).toBe(
+    expect(evaluateFaceGuide(wellFittedFace({ leftEye: { x: 0.625, y: 0.48 }, rightEye: { x: 0.375, y: 0.4 } })).status).toBe(
       FaceGuideStatus.NOT_FRONTAL,
     )
   })
@@ -78,8 +84,8 @@ describe('cropRectangleAroundFace', () => {
   it('얼굴 크기에 맞춘 4:5 영역을 얼굴 중심으로 자른다', () => {
     const crop = cropRectangleAroundFace(4000, 3000, { x: 1800, y: 1200, width: 460, height: 400 })
     expect(crop.width / crop.height).toBeCloseTo(PHOTO_WIDTH / PHOTO_HEIGHT, 2)
-    expect(crop.width).toBe(1150)
-    expect(crop.x + crop.width / 2).toBe(2030)
+    expect(crop.width).toBe(697)
+    expect(Math.abs(crop.x + crop.width / 2 - 2030)).toBeLessThanOrEqual(1)
   })
 
   it('이미지 밖으로 나가지 않게 줄이고 안쪽으로 민다', () => {

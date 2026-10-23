@@ -6,6 +6,7 @@ import { useMessages } from '../../shared/i18n'
 import { PageLayout } from '../../shared/ui'
 import { login } from './api'
 import { AuthForm } from './AuthForm'
+import { LookWheel } from './LookWheel'
 import './auth.css'
 import { AUTH_MESSAGES } from './messages'
 
@@ -20,11 +21,16 @@ export function LoginPage() {
   }
 
   return (
-    <PageLayout title={messages.title} lede={messages.lede} onBack={() => navigate(ROUTES.landing)}>
-      <AuthForm submitLabel={messages.submit} onSubmit={handleSubmit} />
-      <p className="auth-switch">
-        {messages.switchQuestion} <Link to={ROUTES.signup}>{messages.switchLink}</Link>
-      </p>
+    <PageLayout width="wide" title={messages.title} lede={messages.lede} onBack={() => navigate(ROUTES.landing)}>
+      <div className="auth-split">
+        <div className="auth-split-form">
+          <AuthForm submitLabel={messages.submit} onSubmit={handleSubmit} />
+          <p className="auth-switch">
+            {messages.switchQuestion} <Link to={ROUTES.signup}>{messages.switchLink}</Link>
+          </p>
+        </div>
+        <LookWheel size="compact" />
+      </div>
     </PageLayout>
   )
 }

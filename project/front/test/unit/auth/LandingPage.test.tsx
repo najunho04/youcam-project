@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -124,6 +124,85 @@ describe('LandingPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'RETRY' }))
 
       await waitFor(() => expect(screen.getByRole('button', { name: 'CONTINUE' })).toBeEnabled())
+    })
+  })
+
+  describe('반원 코디 카드', () => {
+    function startButton() {
+      return screen.getByRole('button', { name: 'Get started with ColorFit looks' })
+    }
+
+    function cardCount() {
+      return within(screen.getByRole('region', { name: 'ColorFit looks' })).getByText(/\d{2} \/ 05/)
+    }
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('갤러리 대신 코디 일러스트 5장을 반원으로 펼쳐 보여주고, 첫 장이 메인이다', () => {
+      stubFetchResponse(200, newUser)
+      renderLandingPage()
+
+      const wheel = screen.getByRole('region', { name: 'ColorFit looks' })
+      expect(within(wheel).getAllByRole('img')).toHaveLength(5)
+      expect(cardCount()).toHaveTextContent('01 / 05')
+    })
+
+    it('시간이 지나면 다음 카드가 돌아서 메인이 된다', () => {
+      vi.useFakeTimers()
+      stubFetchResponse(200, newUser)
+      renderLandingPage()
+
+      act(() => {
+        vi.advanceTimersByTime(3500)
+      })
+
+      expect(cardCount()).toHaveTextContent('02 / 05')
+    })
+
+    it('옆 카드를 누르면 그 카드가 메인으로 돌아온다', async () => {
+      stubFetchResponse(200, newUser)
+      renderLandingPage()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Bring Blue gingham shirt with brown trousers to the front' }))
+
+      expect(cardCount()).toHaveTextContent('02 / 05')
+    })
+
+    it('비로그인이면 메인 카드를 눌러 로그인 화면으로 이동한다', async () => {
+      const fetchMock = stubFetchResponse(200, newUser)
+      renderLandingPage()
+
+      await userEvent.click(startButton())
+
+      expect(await screen.findByText('로그인 화면')).toBeInTheDocument()
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['ageGroup·gender 가 없으면 프로필', newUser, '프로필 화면'],
+      ['personalColor 가 없으면 퍼스널컬러', profiledUser, '퍼스널컬러 화면'],
+      ['모두 있으면 추천', completeUser, '추천 화면'],
+    ])('로그인 상태면 메인 카드를 눌러 CONTINUE 와 같은 곳으로 간다: %s', async (_, user, expectedScreen) => {
+      tokenStorage.set('valid-token')
+      stubFetchResponse(200, user)
+      renderLandingPage()
+
+      await userEvent.click(startButton())
+
+      expect(await screen.findByText(expectedScreen)).toBeInTheDocument()
+    })
+
+    it('토큰이 만료되어 401 이면 메인 카드를 눌렀을 때 로그인 화면으로 이동한다', async () => {
+      tokenStorage.set('expired-token')
+      renderLandingPage()
+      await screen.findByRole('button', { name: 'CONTINUE' })
+      stubFetchResponse(401, { error: { code: ErrorCode.UNAUTHORIZED, message: 'UNAUTHORIZED' } })
+
+      await userEvent.click(startButton())
+
+      expect(await screen.findByText('로그인 화면')).toBeInTheDocument()
     })
   })
 })
