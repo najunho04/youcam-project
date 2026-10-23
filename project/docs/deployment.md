@@ -86,6 +86,7 @@
 | `EC2_INSTANCE_ID` | `i-0f2714f3bf31fbd5b` |
 | `ECR_REPOSITORY` | `colorfit-backend` (최근 이미지 5개만 유지) |
 
+- OIDC 신뢰 조건의 `sub` 는 GitHub 의 immutable subject 형식이다: `repo:najunho04@239599953/youcam-project@1420341680:ref:refs/heads/main` (레포 이름만 쓰면 AssumeRole 이 거부된다).
 - 롤백: Actions 에서 이전 커밋으로 `Deploy backend` 를 다시 실행하거나, EC2 에서 `BACKEND_IMAGE=<ECR 주소>:<이전 SHA> docker compose --profile prod up -d --no-build backend` 를 실행한다.
 
 ## 6. AWS 자원 정리 (해커톤 종료 후)
