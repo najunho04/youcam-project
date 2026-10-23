@@ -1,4 +1,4 @@
-# 개발: make dev → db 만 띄움 / 배포(EC2): make up → db + backend + web
+# 개발: make dev → db 만 띄움 / 배포(EC2): make up → backend + caddy (DB 는 Neon, 프론트는 Vercel)
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -21,20 +21,21 @@ services:
     profiles: ["prod"]
     build: ./backend
     env_file: .env
-    environment:
-      DATABASE_URL: postgresql+psycopg://colorfit:colorfit@db:5432/colorfit
     volumes:
       - model-cache:/app/.cache/huggingface
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
 
-  web:
+  caddy:
     profiles: ["prod"]
-    build: ./front
+    image: caddy:2-alpine
+    environment:
+      API_HOST: ${API_HOST:-localhost}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
     depends_on:
       - backend
     restart: unless-stopped
@@ -42,3 +43,4 @@ services:
 volumes:
   db-data:
   model-cache:
+  caddy-data:

@@ -1,0 +1,70 @@
+# main 의 CI 가 통과하면 백엔드를 EC2 에 배포한다. 프론트는 Vercel Git 연동이 자동 배포한다.
+# SSH 대신 GitHub OIDC → AWS 롤로 소스를 S3 에 올리고, SSM Run Command 로 EC2 에서 빌드·재기동한다.
+# 필요한 repository variables: AWS_DEPLOY_ROLE_ARN, EC2_INSTANCE_ID, DEPLOY_BUCKET
+# EC2 의 /home/ubuntu/colorfit/.env 는 직접 관리한다 (레포에 없음).
+name: Deploy backend
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  deploy:
+    if: vars.AWS_DEPLOY_ROLE_ARN != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Upload source
+        id: upload
+        run: |
+          key="deploy/backend-${GITHUB_SHA}.tar.gz"
+          tar -czf /tmp/backend.tar.gz -C project \
+            --exclude .venv --exclude var --exclude __pycache__ --exclude .pytest_cache \
+            backend docker-compose.yml Caddyfile
+          aws s3 cp /tmp/backend.tar.gz "s3://${{ vars.DEPLOY_BUCKET }}/$key"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Build and restart on EC2
+        run: |
+          command_id=$(aws ssm send-command \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --document-name AWS-RunShellScript \
+            --timeout-seconds 1800 \
+            --parameters "commands=[
+              \"set -e\",
+              \"cd /home/ubuntu/colorfit\",
+              \"aws s3 cp s3://${{ vars.DEPLOY_BUCKET }}/${{ steps.upload.outputs.key }} /tmp/backend.tar.gz\",
+              \"rm -rf backend && tar -xzf /tmp/backend.tar.gz\",
+              \"docker compose --profile prod up -d --build backend caddy\",
+              \"docker image prune -f\"
+            ]" \
+            --query Command.CommandId --output text)
+          # 이미지 빌드(torch)가 길어서 aws ssm wait(최대 약 100초) 대신 직접 폴링한다
+          for attempt in $(seq 1 180); do
+            status=$(aws ssm get-command-invocation --command-id "$command_id" \
+              --instance-id "${{ vars.EC2_INSTANCE_ID }}" --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in Pending|InProgress|Delayed) sleep 10 ;; *) break ;; esac
+          done
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text | tail -40
+          echo "status=$status"
+          test "$status" = Success

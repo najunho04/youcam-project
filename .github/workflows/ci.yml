@@ -8,13 +8,34 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: project/backend
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: colorfit
+          POSTGRES_PASSWORD: colorfit
+          POSTGRES_DB: colorfit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U colorfit"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.13"
-      - name: Compile
-        run: python -m compileall -q project/backend/src
+          enable-cache: true
+          cache-dependency-glob: project/backend/uv.lock
+      - run: uv sync --frozen
+      - name: Import lint
+        run: PYTHONPATH=src uv run lint-imports
+      - name: Test
+        run: PYTHONPATH=src uv run pytest test
 
   front:
     runs-on: ubuntu-latest
@@ -25,9 +46,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: project/front/package-lock.json
       - run: npm ci
+      - name: Lint
+        run: npx eslint src
+      - name: Test
+        run: npx vitest run
       - name: Build
         run: npm run build

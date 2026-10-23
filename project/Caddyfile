@@ -1,0 +1,7 @@
+# EC2 리버스 프록시. API_HOST(.env) 로 Let's Encrypt 인증서를 자동 발급한다.
+{$API_HOST} {
+	request_body {
+		max_size 45MB  # 이미지 10MB × 최대 4장
+	}
+	reverse_proxy backend:8000
+}
