@@ -1,10 +1,11 @@
 /* swipe 슬라이스 전용: 이전 · 현재 · 다음 세 칸 캐러셀 · 원형 버튼 */
 .swipe-carousel {
-  --swipe-card-width: min(340px, 44vw, calc((100dvh - 440px) * 0.75));
+  /* 카드 높이 = 화면 높이 − 헤더·제목·버튼 몫. 한 화면에 버튼까지 다 들어온다 */
+  --swipe-card-width: max(180px, min(340px, 44vw, calc((100dvh - 440px) * 0.75)));
   --swipe-slot-gap: calc(var(--swipe-card-width) * 1.12);
   --swipe-slide-duration: 650ms;
   --swipe-slide-ease: cubic-bezier(0.65, 0.05, 0.25, 1);
-  position: relative; height: calc(var(--swipe-card-width) * 4 / 3 + 44px); overflow: hidden;
+  position: relative; height: calc(var(--swipe-card-width) * 4 / 3 + 36px); overflow: hidden;
   touch-action: none;
 }
 /* 자리(위치·크기·밝기)는 SwipePage 가 칸마다 CSS 변수로 넘기고, 바뀌면 미끄러지듯 옮겨 간다 */
@@ -49,7 +50,7 @@
 .swipe-slot-label-previous { left: calc(50% - var(--swipe-slot-gap)); }
 .swipe-slot-label-next { left: calc(50% + var(--swipe-slot-gap)); }
 
-.swipe-actions { display: flex; justify-content: center; align-items: center; gap: 24px; padding-top: 8px; }
+.swipe-actions { display: flex; justify-content: center; align-items: center; gap: 24px; }
 .swipe-round-button {
   width: 64px; height: 64px; border: 0; border-radius: 50%; cursor: pointer;
   display: grid; place-items: center; background: var(--color-surface); box-shadow: var(--shadow-large);

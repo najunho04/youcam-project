@@ -61,8 +61,8 @@
 .landing-menu {
   position: fixed; left: 50%; bottom: 72px; translate: -50% 0; z-index: 5;
   display: grid; justify-items: center; gap: 0.12em;
-  /* 포스터 문구처럼, 자간은 바짝 (예전 왼쪽 메뉴 크기의 70%) */
-  font: 500 clamp(22px, 3.4vw, 63px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* 포스터 문구처럼, 자간은 바짝 (예전 왼쪽 메뉴 크기의 35%) */
+  font: 500 clamp(14px, 1.7vw, 32px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: -0.06em; color: #fff; mix-blend-mode: difference;
   -webkit-font-smoothing: antialiased;
 }

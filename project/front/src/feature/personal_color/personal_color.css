@@ -1,5 +1,7 @@
 /* personal_color 슬라이스 전용: 사진 슬롯 · 시즌 결과 · 팔레트 */
-.photo-slot-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 640px; }
+/* 칸 높이(폭의 62.5%)가 화면 높이에서 제목·버튼 몫을 뺀 만큼을 넘지 않게 폭을 줄인다.
+   .page > 로 공용 폭 상한(.page-width-regular > *)보다 우선한다 */
+.page > .photo-slot-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: min(640px, calc((100dvh - 440px) * 1.6)); }
 .photo-slot { display: grid; gap: 14px; align-content: start; text-align: left; }
 /* 4:5 칸 안에 버튼을 둔다. 사진을 고르면 미리보기 위 아래쪽으로 내려간다 */
 .photo-slot-thumbnail {
@@ -19,19 +21,21 @@
 .photo-slot-count { font-variant-numeric: tabular-nums; }
 
 /* 결과: 가운데 정렬 · 시즌 색이 화면 위쪽에서 번진다 */
-.personal-color-result { display: grid; justify-items: center; gap: 48px; }
+/* 빛은 결과 묶음 안의 쌓임 맥락(isolation)에 둔다. 화면 전체(fixed, z-index -1)로 두면 body 배경에 가려 안 보인다 */
+.personal-color-result { position: relative; isolation: isolate; display: grid; justify-items: center; gap: clamp(16px, 3.5vh, 40px); }
 .personal-color-result::before {
-  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background: radial-gradient(ellipse 70% 60% at 50% 0%, var(--season-glow), rgba(5, 5, 5, 0) 70%);
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: 50%; top: calc(-1 * clamp(80px, 14vh, 160px)); translate: -50% 0; width: min(1200px, 100vw); height: 90vh;
+  background: radial-gradient(ellipse 60% 55% at 50% 0%, var(--season-glow), rgba(5, 5, 5, 0) 72%);
 }
 .season-glow-spring { --season-glow: #9a5a3c; --season-tint: #f2cdb4; }
 .season-glow-summer { --season-glow: #4a5a8a; --season-tint: #cbd4ef; }
 .season-glow-autumn { --season-glow: #7a5230; --season-tint: #d9c39a; }
 .season-glow-winter { --season-glow: #2f3f7a; --season-tint: #c3cbe6; }
-.season-hero { display: grid; justify-items: center; gap: 14px; }
-.season-hero-face { width: 72px; height: 90px; object-fit: cover; border-radius: var(--radius); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
-.season-hero-kicker { margin: 8px 0 0; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--season-tint); }
-.season-hero-name { margin: 0; max-width: 7ch; font-size: clamp(3.5rem, 7.2vw, 6.5rem); line-height: 0.88; letter-spacing: -0.055em; font-weight: 500; }
+.season-hero { display: grid; justify-items: center; gap: clamp(6px, 1.4vh, 14px); }
+.season-hero-face { width: clamp(44px, 6.4vh, 72px); aspect-ratio: 4 / 5; height: auto; object-fit: cover; border-radius: var(--radius); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3); }
+.season-hero-kicker { margin: 4px 0 0; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--season-tint); }
+.season-hero-name { margin: 0; max-width: 7ch; font-size: clamp(2.75rem, min(7.2vw, 9.5vh), 6.5rem); line-height: 0.88; letter-spacing: -0.055em; font-weight: 500; }
 .season-hero-description { margin: 0; font-size: 15px; line-height: 1.3; color: var(--color-body); }
 
 .palette-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -41,9 +45,9 @@
 .palette-grid li:nth-child(6) { animation-delay: 200ms; } .palette-grid li:nth-child(n + 7) { animation-delay: 240ms; }
 @keyframes palette-in { from { opacity: 0; transform: scale(0.6); } }
 
-.personal-color-palette { display: grid; justify-items: center; gap: 18px; }
+.personal-color-palette { display: grid; justify-items: center; gap: clamp(10px, 1.8vh, 18px); }
 .personal-color-palette .eyebrow { color: var(--season-tint); }
-.personal-color-palette .palette-grid { grid-template-columns: repeat(4, 44px); gap: 14px; justify-content: center; }
+.personal-color-palette .palette-grid { --swatch-size: clamp(30px, 4.6vh, 44px); grid-template-columns: repeat(4, var(--swatch-size)); gap: clamp(8px, 1.4vh, 14px); justify-content: center; }
 .personal-color-palette .palette-grid li { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12); }
 
 /* 가이드 촬영 창(얼굴 타원 · 상반신 실루엣): 왼쪽 4:5 카메라 · 오른쪽 안내와 체크리스트. 미리보기와 촬영 사진은 거울 모습이다. */

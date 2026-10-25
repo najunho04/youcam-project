@@ -95,11 +95,17 @@ a { color: var(--color-text); text-underline-offset: 3px; text-decoration-thickn
 .page-width-regular .page-dock-inner, .page-width-wide .page-dock-inner { grid-auto-flow: column; justify-content: start; }
 .page-width-regular .page-dock-inner .button, .page-width-wide .page-dock-inner .button { width: auto; min-width: 200px; }
 
-/* 가운데 정렬: 묶음마다 폭 상한은 그대로 두고 가운데로 모은다. 제목은 한 줄로 길게, 줄바꿈(\n)은 문구에서 정한다 */
-.page-align-center { justify-items: center; align-content: center; text-align: center; }
+/* 가운데 정렬: 묶음마다 폭 상한은 그대로 두고 가운데로 모은다. 제목은 한 줄로 길게, 줄바꿈(\n)은 문구에서 정한다.
+   한 화면에 다 들어오도록 여백·간격·제목 크기를 화면 높이에 맞춰 줄인다 */
+.page-align-center {
+  position: relative; justify-items: center; align-content: center; text-align: center;
+  padding-top: clamp(24px, 4.5vh, 56px); padding-bottom: clamp(24px, 4.5vh, 56px); gap: clamp(12px, 2.2vh, 24px);
+}
 .page-align-center > :not(.page-back) { width: 100%; }
-.page-align-center .page-title { max-width: none; white-space: pre-line; }
-.page-align-center .page-lede { max-width: 44ch; }
+/* 뒤로는 흐름에서 빼 왼쪽 위에 둔다 (세로 공간을 차지하지 않게) */
+.page-align-center .page-back { position: absolute; top: 12px; left: var(--page-margin); margin: 0; }
+.page-align-center .page-title { max-width: none; white-space: pre-line; font-size: clamp(2.25rem, min(5.1vw, 8vh), 5.5rem); }
+.page-align-center .page-lede { max-width: 44ch; margin: 0; }
 .page-align-center .state { justify-items: center; }
 .page-align-center .state-banner { text-align: left; }
 .page-align-center .page-dock-inner { justify-content: center; }
