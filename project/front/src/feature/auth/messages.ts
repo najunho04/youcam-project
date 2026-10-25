@@ -4,9 +4,8 @@ import { ErrorCode } from '../../common/type'
 const ENGLISH = {
   landing: {
     deckStart: 'Get started with ColorFit looks',
-    deckHint: 'Click a card to start',
     accountMenu: 'Account',
-    login: 'LOGIN',
+    start: 'START',
     continue: 'CONTINUE',
     logout: 'LOGOUT',
     retry: 'RETRY',
@@ -52,9 +51,8 @@ const ENGLISH = {
 const KOREAN: typeof ENGLISH = {
   landing: {
     deckStart: 'ColorFit 코디로 시작하기',
-    deckHint: '카드를 눌러 시작하세요',
     accountMenu: '계정',
-    login: '로그인',
+    start: '시작하기',
     continue: '이어하기',
     logout: '로그아웃',
     retry: '다시 시도',

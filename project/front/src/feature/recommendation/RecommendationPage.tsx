@@ -55,7 +55,7 @@ function RecommendationSummary({ recommendation }: { recommendation: Recommendat
   )
 }
 
-/** 취향·퍼스널컬러로 고른 상의 상위 5개. 입어보기는 가상 피팅 화면, 구매하러 가기는 쇼핑몰(새 탭). */
+/** 취향·퍼스널컬러로 고른 상의 상위 6개 (3열 두 줄, 모자라면 마지막 줄을 가운데로). 입어보기는 가상 피팅 화면, 구매하러 가기는 쇼핑몰(새 탭). */
 export function RecommendationPage() {
   const navigate = useNavigate()
   const messages = useMessages(RECOMMENDATION_MESSAGES)
@@ -89,7 +89,7 @@ export function RecommendationPage() {
   if (loadError !== null) {
     const requiredRoute = requiredRouteOf(loadError)
     return (
-      <PageLayout width="wide" title={messages.title} lede={messages.lede}>
+      <PageLayout width="wide" align="center" title={messages.title} lede={messages.lede}>
         {requiredRoute ? (
           <>
             <EmptyState message={describeError(loadError)} />
@@ -106,14 +106,14 @@ export function RecommendationPage() {
 
   if (recommendation === null) {
     return (
-      <PageLayout width="wide" title={messages.title} lede={messages.lede}>
+      <PageLayout width="wide" align="center" title={messages.title} lede={messages.lede}>
         <Loading />
       </PageLayout>
     )
   }
 
   return (
-    <PageLayout width="wide" title={messages.title} lede={messages.lede}>
+    <PageLayout width="wide" align="center" title={messages.title} lede={messages.lede}>
       <RecommendationSummary recommendation={recommendation} />
       {recommendation.items.length === 0 ? (
         <EmptyState message={messages.noItems} />
@@ -124,7 +124,6 @@ export function RecommendationPage() {
               key={item.product.id}
               item={item}
               rank={index + 1}
-              isFeatured={index === 0}
               highlightedReason={SERVER_SEASON_NAMES[recommendation.season]}
               onTryOn={() => navigate(ROUTES.fitting(item.product.id))}
             />

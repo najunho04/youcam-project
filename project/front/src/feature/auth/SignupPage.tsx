@@ -20,7 +20,7 @@ export function SignupPage() {
   }
 
   return (
-    <PageLayout title={messages.title} lede={messages.lede} onBack={() => navigate(ROUTES.landing)}>
+    <PageLayout align="center" title={messages.title} lede={messages.lede} onBack={() => navigate(ROUTES.landing)}>
       <AuthForm submitLabel={messages.submit} onSubmit={handleSubmit} />
       <p className="auth-switch">
         {messages.switchQuestion} <Link to={ROUTES.login}>{messages.switchLink}</Link>

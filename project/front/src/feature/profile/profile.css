@@ -1,7 +1,7 @@
 /* profile 슬라이스 전용: 성별 세그먼트 · 나이대 선택 카드 (라디오는 시각적으로만 숨김) */
-.profile-form { display: grid; gap: 28px; }
+.profile-form { display: grid; gap: 48px; }
 .profile-fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
-.profile-fieldset legend { padding: 0; margin-bottom: 8px; }
+.profile-fieldset legend { padding: 0; margin: 0 auto 12px; }
 
 .profile-segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; padding: 0; background: var(--color-border); box-shadow: inset 0 0 0 1px var(--color-border); }
 .profile-segment { position: relative; display: grid; place-items: center; height: 48px; background: var(--color-background); box-shadow: inset 0 0 0 1px var(--color-border); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; cursor: pointer; transition: background-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
@@ -10,7 +10,7 @@
 
 .profile-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .profile-choice {
-  position: relative; display: flex; min-height: 96px; justify-content: flex-start; align-items: flex-end; padding: 0 12px 12px;
+  position: relative; display: flex; min-height: 64px; justify-content: center; align-items: center; padding: 0 12px;
   border-radius: var(--radius); background: transparent; box-shadow: inset 0 0 0 1px var(--color-border);
   font-size: 22px; font-weight: 500; letter-spacing: -0.04em; cursor: pointer;
   transition: transform 100ms ease-out, box-shadow 150ms var(--ease-out);
@@ -22,5 +22,4 @@
 
 @media (max-width: 767px) {
   .profile-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .profile-choice { justify-content: flex-start; min-height: 64px; padding: 0 18px; }
 }

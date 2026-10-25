@@ -15,12 +15,12 @@ import { PhotoSlot } from './PhotoSlot'
 import { PERSONAL_COLOR_MESSAGES } from './messages'
 import './personal_color.css'
 
-/** 시즌 카드 배경. 시즌마다 대표 팔레트 그라데이션. */
-const SEASON_CARD_CLASS_NAMES: Record<Season, string> = {
-  [Season.SPRING_WARM]: 'season-card-spring',
-  [Season.SUMMER_COOL]: 'season-card-summer',
-  [Season.AUTUMN_WARM]: 'season-card-autumn',
-  [Season.WINTER_COOL]: 'season-card-winter',
+/** 결과 화면 위쪽에서 번지는 빛. 시즌마다 대표 색. */
+const SEASON_GLOW_CLASS_NAMES: Record<Season, string> = {
+  [Season.SPRING_WARM]: 'season-glow-spring',
+  [Season.SUMMER_COOL]: 'season-glow-summer',
+  [Season.AUTUMN_WARM]: 'season-glow-autumn',
+  [Season.WINTER_COOL]: 'season-glow-winter',
 }
 
 const ONBOARDING_STEP = { current: 2, total: 4 }
@@ -44,24 +44,33 @@ function PersonalColorResult({
 }) {
   const messages = useMessages(PERSONAL_COLOR_MESSAGES)
   return (
-    <PageLayout width="regular" step={ONBOARDING_STEP} onBack={onBack} footer={<Button onClick={onNext}>{messages.next}</Button>}>
+    <PageLayout
+      align="center"
+      step={ONBOARDING_STEP}
+      onBack={onBack}
+      footer={
+        <Button variant="secondary" onClick={onNext}>
+          {messages.next}
+        </Button>
+      }
+    >
       <h1 className="visually-hidden">{messages.resultHeading}</h1>
-      <div className="personal-color-result">
-      <section className={`season-card ${SEASON_CARD_CLASS_NAMES[personalColor.season]}`}>
-        <img className="season-card-face" src={personalColor.selfieUrl} alt={messages.selfieLabel} />
-        <p className="season-card-kicker">{messages.myPersonalColor}</p>
-        <h2 className="season-card-name">{messages.seasonNames[personalColor.season]}</h2>
-        <p className="season-card-description">{messages.seasonDescriptions[personalColor.season]}</p>
-      </section>
-      <section className="personal-color-palette">
-        <p className="eyebrow">{messages.matchingColors}</p>
-        <ul aria-label={messages.palette} className="palette-grid">
-          {personalColor.palette.map((hexColor) => (
-            <li key={hexColor} title={hexColor} style={{ background: hexColor }} />
-          ))}
-        </ul>
-        <p className="footnote">{messages.paletteNote}</p>
-      </section>
+      <div className={`personal-color-result ${SEASON_GLOW_CLASS_NAMES[personalColor.season]}`}>
+        <section className="season-hero">
+          <img className="season-hero-face" src={personalColor.selfieUrl} alt={messages.selfieLabel} />
+          <p className="season-hero-kicker">{messages.myPersonalColor}</p>
+          <h2 className="season-hero-name">{messages.seasonNames[personalColor.season]}</h2>
+          <p className="season-hero-description">{messages.seasonDescriptions[personalColor.season]}</p>
+        </section>
+        <section className="personal-color-palette">
+          <p className="eyebrow">{messages.matchingColors}</p>
+          <ul aria-label={messages.palette} className="palette-grid">
+            {personalColor.palette.map((hexColor) => (
+              <li key={hexColor} title={hexColor} style={{ background: hexColor }} />
+            ))}
+          </ul>
+          <p className="footnote">{messages.paletteNote}</p>
+        </section>
       </div>
     </PageLayout>
   )
@@ -147,6 +156,7 @@ export function PersonalColorPage() {
   return (
     <PageLayout
       width="regular"
+      align="center"
       title={messages.title}
       lede={messages.lede}
       step={ONBOARDING_STEP}
@@ -187,6 +197,7 @@ export function PersonalColorPage() {
           onCaptureRequest={isCameraAvailable ? () => setOpenCaptureSubject(CaptureSubject.UPPER_BODY) : undefined}
         />
       </div>
+      <p className="footnote photo-slot-count">{messages.photoCount(Number(selfie !== null) + Number(bodyImage !== null))}</p>
       {isAnalyzing && <Loading message={messages.analyzing} />}
       {isFaceNotDetectedError && <ErrorMessage message={`${messages.faceNotDetected} (${messages.selfieGuide})`} />}
       {errorMessage && <ErrorMessage message={errorMessage} />}

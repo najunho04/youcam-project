@@ -82,16 +82,19 @@ describe('PersonalColorPage', () => {
     expect(screen.getByText(/정면으로 서서, 가슴 위 상반신과 어깨가 보이게, 혼자 나오게/)).toBeInTheDocument()
   })
 
-  it('두 장을 모두 선택해야 분석하기가 활성화되고 각 칸에 미리보기를 보여준다', async () => {
+  it('두 장을 모두 선택해야 분석하기가 활성화되고 각 칸에 미리보기와 선택한 장수를 보여준다', async () => {
     renderPersonalColorPage()
 
     expect(analyzeButton()).toBeDisabled()
+    expect(screen.getByText('사진 0 / 2장')).toBeInTheDocument()
     await userEvent.upload(selfieInput(), imageFile('face.jpg'))
     expect(await screen.findByRole('img', { name: '얼굴 사진 미리보기' })).toHaveAttribute('src', 'blob:face.jpg')
     expect(analyzeButton()).toBeDisabled()
+    expect(screen.getByText('사진 1 / 2장')).toBeInTheDocument()
     await userEvent.upload(bodyImageInput(), imageFile('body.png', 'image/png'))
     expect(await screen.findByRole('img', { name: '상반신 사진 미리보기' })).toHaveAttribute('src', 'blob:body.png')
     expect(analyzeButton()).toBeEnabled()
+    expect(screen.getByText('사진 2 / 2장')).toBeInTheDocument()
   })
 
   it('분석하기를 누르면 selfie·bodyImage 필드로 보낸다', async () => {

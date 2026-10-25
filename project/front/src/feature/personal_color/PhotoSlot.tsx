@@ -4,7 +4,7 @@ import { useMessages } from '../../shared/i18n'
 import { Button } from '../../shared/ui'
 import { PERSONAL_COLOR_MESSAGES } from './messages'
 
-/** 사진 1칸: 미리보기 썸네일 + 가이드 + 파일 선택 버튼. onCaptureRequest 가 있으면 가이드 촬영 버튼을 앞에 함께 둔다. */
+/** 사진 1칸: 4:5 썸네일 안에 촬영·파일 선택 버튼(사진을 고르면 미리보기 위 아래쪽에) + 아래 이름·가이드. onCaptureRequest 가 있으면 가이드 촬영 버튼을 앞에 함께 둔다. */
 export function PhotoSlot({
   label,
   guide,
@@ -36,15 +36,17 @@ export function PhotoSlot({
   return (
     <section className="photo-slot">
       <div className={`photo-slot-thumbnail${previewUrl ? ' is-filled' : ''}`}>
-        {previewUrl ? <img src={previewUrl} alt={messages.preview(label)} /> : <span aria-hidden="true">＋</span>}
-      </div>
-      <div className="photo-slot-body">
-        <h2 className="headline">{label}</h2>
-        <p className="footnote">{guide}</p>
+        {previewUrl ? (
+          <img src={previewUrl} alt={messages.preview(label)} />
+        ) : (
+          <span className="photo-slot-placeholder" aria-hidden="true">
+            ＋
+          </span>
+        )}
         <div className="photo-slot-actions">
           {onCaptureRequest && (
             <Button
-              variant={previewUrl ? 'secondary' : 'tinted'}
+              variant={previewUrl ? 'tinted' : 'secondary'}
               size="small"
               className="photo-slot-picker"
               disabled={disabled}
@@ -53,9 +55,7 @@ export function PhotoSlot({
               {messages.takePhoto(label)}
             </Button>
           )}
-          <label
-            className={`button ${onCaptureRequest ? 'button-plain' : previewUrl ? 'button-secondary' : 'button-tinted'} button-small photo-slot-picker`}
-          >
+          <label className={`button ${previewUrl ? 'button-tinted' : 'button-secondary'} button-small photo-slot-picker`}>
             {onCaptureRequest ? messages.uploadFile : messages.select(label)}
             <input
               type="file"
@@ -69,6 +69,10 @@ export function PhotoSlot({
             />
           </label>
         </div>
+      </div>
+      <div className="photo-slot-body">
+        <h2 className="headline">{label}</h2>
+        <p className="footnote">{guide}</p>
       </div>
     </section>
   )

@@ -33,7 +33,7 @@ RECOMMENDATIONS_PATH = "/api/recommendations"
 RECOMMENDATION_RESPONSE_FIELDS = {"styleTags", "season", "palette", "isFallback", "items"}
 RECOMMENDATION_ITEM_FIELDS = {"product", "score", "tasteScore", "colorScore", "reasonTags"}
 PRODUCT_DTO_FIELDS = {"id", "title", "price", "mallName", "purchaseUrl", "imageUrl", "style"}
-MAXIMUM_ITEM_COUNT = 5
+MAXIMUM_ITEM_COUNT = 6
 TOLERANCE = 1e-6
 
 STYLE_KOREAN_NAMES = {

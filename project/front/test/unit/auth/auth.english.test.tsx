@@ -57,11 +57,11 @@ describe('auth 영어 화면', () => {
     expect(document.documentElement.lang).toBe('ko')
   })
 
-  it('메인 화면도 언어 전환을 따른다: LOGIN ↔ 로그인', async () => {
+  it('메인 화면도 언어 전환을 따른다: START ↔ 시작하기', async () => {
     renderAt(ROUTES.landing)
 
-    expect(screen.getByRole('link', { name: 'LOGIN' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'START' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'KO' }))
-    expect(screen.getByRole('link', { name: '로그인' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '시작하기' })).toBeInTheDocument()
   })
 })

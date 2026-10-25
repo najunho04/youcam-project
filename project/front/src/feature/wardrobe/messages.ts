@@ -1,7 +1,7 @@
 // wardrobe 슬라이스 문구 (영어 · 한국어)
 
 const ENGLISH = {
-  title: 'Clothes you love to wear',
+  title: 'Clothes you love\nto wear',
   guide: (limit: number) => `Upload up to ${limit} photos of outfits or clothes you like and we'll factor them into your style.`,
   tooManyPhotos: (limit: number) => `You can choose up to ${limit} photos.`,
   wrongImageType: 'Only JPG or PNG photos can be uploaded.',

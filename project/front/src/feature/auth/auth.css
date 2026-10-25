@@ -1,19 +1,24 @@
 /* auth 슬라이스 전용: 랜딩 · 가입/로그인 폼 */
 
-/* ---------- 랜딩: 다른 화면과 같은 먹색 바탕 · 흰 글씨 위 반원 코디 카드 + 왼쪽 계정 메뉴 ---------- */
+/* ---------- 랜딩: 먹색 바탕 · 위 가운데 로고 · 둥근 부채꼴 코디 카드 · 아래 가운데 계정 메뉴 ---------- */
 .landing { position: fixed; inset: 0; overflow: hidden; background: var(--color-base); color: var(--color-text); }
+/* 아래 메뉴가 카드 위에서도 읽히도록 바닥을 먹색으로 덮는다 */
+.landing::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 34vh; z-index: 1; pointer-events: none;
+  background: linear-gradient(to top, var(--color-base) 30%, rgba(5, 5, 5, 0));
+}
 .landing-brand {
-  position: fixed; top: 6px; left: 12px; z-index: 5; margin: 0;
-  font: 500 clamp(39px, 6.3vw, 118px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  position: fixed; top: 32px; left: 50%; translate: -50% 0; z-index: 5; margin: 0;
+  font: 500 clamp(39px, 5vw, 96px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: -0.065em; color: #fff; mix-blend-mode: difference; -webkit-font-smoothing: antialiased;
 }
 
-/* 반원 코디 카드: 화면 아래 먼 점을 축으로 카드를 부채꼴로 펼치고, 바퀴처럼 한 칸씩 돌려 메인 카드를 바꾼다 */
+/* 반원 코디 카드: 화면 아래 가까운 점을 축으로 카드를 둥근 부채꼴로 펼치고, 바퀴처럼 한 칸씩 돌려 메인 카드를 바꾼다 */
 .look-wheel {
-  --wheel-card-height: min(60vh, 560px);
-  --wheel-card-width: calc(var(--wheel-card-height) * 0.8);
-  --wheel-step-angle: 15deg;
-  --wheel-pivot-depth: 250%;
+  --wheel-card-height: min(46vh, 420px);
+  --wheel-card-width: calc(var(--wheel-card-height) * 0.75);
+  --wheel-step-angle: 17deg;
+  --wheel-pivot-depth: 230%;
   --wheel-spin-duration: 1500ms;
   --wheel-spin-ease: cubic-bezier(0.65, 0.05, 0.25, 1);
   --wheel-hold-duration: 3400ms;
@@ -21,10 +26,10 @@
   position: absolute; inset: 0; z-index: 0;
 }
 .look-wheel-card {
-  position: absolute; left: 56%; top: 47%;
+  position: absolute; left: 50%; top: 46%;
   width: var(--wheel-card-width); height: var(--wheel-card-height);
   margin: calc(var(--wheel-card-height) / -2) 0 0 calc(var(--wheel-card-width) / -2);
-  padding: 0; border: 0; border-radius: var(--radius-large); overflow: hidden; cursor: pointer;
+  padding: 0; border: 0; border-radius: 14px; overflow: hidden; cursor: pointer;
   background: #e8e2da; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
   transform-origin: 50% var(--wheel-pivot-depth);
   transition:
@@ -37,11 +42,10 @@
 .look-wheel-card img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; display: block; pointer-events: none; }
 .look-wheel-card:focus-visible { outline: 2px solid var(--color-text); outline-offset: 8px; }
 .look-wheel-caption {
-  position: absolute; left: 56%; bottom: 26px; translate: -50% 0; z-index: 20;
+  position: absolute; left: 50%; bottom: 26px; translate: -50% 0; z-index: 20;
   display: grid; justify-items: center; gap: 8px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 .look-wheel-count { font-size: 11px; letter-spacing: 0.08em; color: var(--color-text); font-variant-numeric: tabular-nums; }
-.look-wheel-hint { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-muted); }
 /* 다음 카드가 돌아 들어오기까지 남은 시간 */
 .look-wheel-progress { display: block; width: 120px; height: 1px; background: var(--color-border); overflow: hidden; }
 .look-wheel-progress-fill {
@@ -55,14 +59,14 @@
 }
 /* 흰 글씨. 넘긴 카드가 지나갈 때도 읽히도록 반전 합성은 유지한다 (먹색 위에서는 그대로 흰색) */
 .landing-menu {
-  position: fixed; left: 12px; top: 50%; translate: 0 -50%; z-index: 5;
-  display: grid; justify-items: start; gap: 0.12em;
-  /* 포스터 문구처럼 크게, 자간은 바짝 (갤러리 안 ColorFit 과 같은 타이포) */
-  font: 500 clamp(31px, 4.9vw, 90px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  position: fixed; left: 50%; bottom: 72px; translate: -50% 0; z-index: 5;
+  display: grid; justify-items: center; gap: 0.12em;
+  /* 포스터 문구처럼, 자간은 바짝 (예전 왼쪽 메뉴 크기의 70%) */
+  font: 500 clamp(22px, 3.4vw, 63px)/0.85 'Helvetica Neue', Helvetica, Arial, sans-serif;
   letter-spacing: -0.06em; color: #fff; mix-blend-mode: difference;
   -webkit-font-smoothing: antialiased;
 }
-.landing-menu-note { margin: 0 0 12px 0.06em; font-size: 13px; line-height: 1.4; letter-spacing: 0; opacity: 0.6; }
+.landing-menu-note { margin: 0 0 12px; font-size: 13px; line-height: 1.4; letter-spacing: 0; opacity: 0.6; }
 .landing-menu-note .landing-menu-link { font-size: inherit; }
 .landing-menu-link {
   position: relative; padding: 0; border: 0; background: none; cursor: pointer;
@@ -75,8 +79,10 @@
 .landing-menu-link:hover::after, .landing-menu-link:focus-visible::after { transform: scaleX(1); transform-origin: left; }
 .landing-menu-link:focus-visible { outline: 2px solid currentColor; outline-offset: 6px; }
 .landing-menu-link:disabled { opacity: 0.35; cursor: default; }
-/* 로그인 후 메뉴(CONTINUE · LOGOUT)는 LOGIN 의 70% */
-.landing-menu-link-small { font-size: 0.7em; }
+/* 로그인 후 메뉴: LOGOUT · CONTINUE 한 줄 */
+.landing-menu-row { display: flex; align-items: baseline; gap: 0.6em; }
+.landing-menu-link-muted { opacity: 0.55; }
+.landing-menu-separator { font-size: 0.5em; opacity: 0.35; }
 /* 오른쪽 아래 EN / KO (갤러리 UI 와 같은 작은 글씨 · 반전 합성) */
 .landing-language {
   position: fixed; right: 16px; bottom: 16px; z-index: 5;
@@ -88,26 +94,7 @@
 .auth-switch { margin: 4px 0 0; font-size: 13px; color: var(--color-muted); }
 .auth-switch a { color: var(--color-text); }
 
-.auth-form { display: grid; gap: 20px; }
+/* 가운데 정렬 화면 안에서도 입력칸 글자는 왼쪽부터 */
+.auth-form { display: grid; gap: 20px; text-align: left; }
 .auth-form-error { margin: 10px 0 0; font-size: 13px; color: var(--color-error); }
 
-/* ---------- 로그인: 왼쪽 폼 · 오른쪽 코디 일러스트 카드 덱 ---------- */
-.auth-split { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 72px; align-items: start; }
-.auth-split-form { display: grid; gap: 16px; align-content: start; }
-
-/* 로그인 화면의 반원 코디 카드: 메인과 같은 모션을 작게 · 반투명하게 (누를 수 없는 장식) */
-.look-wheel-compact {
-  --wheel-card-height: min(34vh, 290px);
-  --wheel-step-angle: 11deg;
-  position: relative; inset: auto; height: min(40vh, 340px); opacity: 0.55; pointer-events: none;
-}
-.look-wheel-compact .look-wheel-card { left: 50%; top: 46%; cursor: default; }
-
-@media (max-width: 767px) {
-  .auth-split { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  .look-wheel-compact { --wheel-card-height: min(30vh, 240px); height: 360px; }
-}
-
-@media (max-width: 600px) {
-  .landing-menu { left: 10px; }
-}

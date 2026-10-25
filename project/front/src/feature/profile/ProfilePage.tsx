@@ -79,6 +79,7 @@ export function ProfilePage() {
     title: messages.title,
     lede: messages.lede,
     step: ONBOARDING_STEP,
+    align: 'center' as const,
     onBack: () => navigate(ROUTES.landing),
   }
 
@@ -102,7 +103,7 @@ export function ProfilePage() {
     <PageLayout
       {...layoutProps}
       footer={
-        <Button type="submit" form={FORM_ID} disabled={ageGroup === null || gender === null || isSaving}>
+        <Button variant="secondary" type="submit" form={FORM_ID} disabled={ageGroup === null || gender === null || isSaving}>
           {messages.next}
         </Button>
       }

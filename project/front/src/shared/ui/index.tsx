@@ -18,6 +18,8 @@ export function buttonClassName(variant: ButtonVariant = 'primary', size: Button
 }
 
 export type PageWidth = 'narrow' | 'regular' | 'wide'
+/** start: 왼쪽 정렬 편집 디자인 · center: 제목·본문·액션을 가운데로 모으고 세로로도 가운데에 둔다 */
+export type PageAlign = 'start' | 'center'
 
 /** 주요 액션 묶음. 데스크톱은 본문 흐름 안에, 좁은 화면은 하단에 고정된다. */
 export function PageActions({ children }: { children: ReactNode }) {
@@ -43,6 +45,7 @@ export function PageLayout({
   step,
   footer,
   width = 'narrow',
+  align = 'start',
 }: {
   title?: string
   lede?: ReactNode
@@ -54,6 +57,7 @@ export function PageLayout({
   step?: { current: number; total: number }
   footer?: ReactNode
   width?: PageWidth
+  align?: PageAlign
 }) {
   const messages = useMessages(MESSAGES)
   const centerTitle = navigationTitle ?? (step ? `${step.current} / ${step.total}` : undefined)
@@ -84,7 +88,7 @@ export function PageLayout({
           </div>
         )}
       </header>
-      <main className={`page page-width-${width}`}>
+      <main className={`page page-width-${width} page-align-${align}`}>
         {onBack && (
           <button type="button" className="page-back" onClick={onBack}>
             <span aria-hidden="true">‹</span>

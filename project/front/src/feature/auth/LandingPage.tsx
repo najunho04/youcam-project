@@ -46,13 +46,13 @@ export function LandingPage() {
   return (
     <div className="landing">
       <h1 className="landing-brand">ColorFit</h1>
-      <LookWheel onSelect={handleStart} selectLabel={messages.deckStart} hint={messages.deckHint} />
+      <LookWheel onSelect={handleStart} selectLabel={messages.deckStart} />
       <nav className="landing-menu" aria-label={messages.accountMenu}>
         {isLoggedIn ? (
           <LoggedInMenu onLogout={handleLogout} onUnauthorized={handleUnauthorized} />
         ) : (
           <Link to={ROUTES.login} className="landing-menu-link">
-            {messages.login}
+            {messages.start}
           </Link>
         )}
       </nav>
@@ -61,7 +61,7 @@ export function LandingPage() {
   )
 }
 
-/** 로그인 상태: 비어 있는 단계로 이어가기 · 로그아웃 */
+/** 로그인 상태: 로그아웃 · 비어 있는 단계로 이어가기 */
 function LoggedInMenu({ onLogout, onUnauthorized }: { onLogout: () => void; onUnauthorized: () => void }) {
   const navigate = useNavigate()
   const messages = useMessages(AUTH_MESSAGES).landing
@@ -102,17 +102,20 @@ function LoggedInMenu({ onLogout, onUnauthorized }: { onLogout: () => void; onUn
           </button>
         </p>
       )}
-      <button
-        type="button"
-        className="landing-menu-link landing-menu-link-small"
-        disabled={user === null}
-        onClick={() => user && navigate(getContinueRoute(user))}
-      >
-        {messages.continue}
-      </button>
-      <button type="button" className="landing-menu-link landing-menu-link-small" onClick={onLogout}>
-        {messages.logout}
-      </button>
+      <div className="landing-menu-row">
+        <button type="button" className="landing-menu-link landing-menu-link-muted" onClick={onLogout}>
+          {messages.logout}
+        </button>
+        <span className="landing-menu-separator" aria-hidden="true">·</span>
+        <button
+          type="button"
+          className="landing-menu-link"
+          disabled={user === null}
+          onClick={() => user && navigate(getContinueRoute(user))}
+        >
+          {messages.continue}
+        </button>
+      </div>
     </>
   )
 }

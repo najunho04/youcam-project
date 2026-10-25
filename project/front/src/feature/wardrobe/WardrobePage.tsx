@@ -70,12 +70,13 @@ export function WardrobePage() {
   return (
     <PageLayout
       width="regular"
+      align="center"
       title={messages.title}
       lede={messages.guide(WARDROBE_PHOTO_LIMIT)}
       step={ONBOARDING_STEP}
       footer={
         <>
-          <Button disabled={selectedFiles.length === 0 || isUploading} onClick={handleUpload}>
+          <Button variant="secondary" disabled={selectedFiles.length === 0 || isUploading} onClick={handleUpload}>
             {messages.upload}
           </Button>
           <Button variant="plain" disabled={isUploading} onClick={() => navigate(ROUTES.recommendation)}>

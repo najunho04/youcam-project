@@ -5,27 +5,25 @@ import { RECOMMENDATION_MESSAGES } from './messages'
 
 /**
  * 추천 상품 카드: 이미지·상품명·가격·쇼핑몰·추천 이유, 입어보기·구매하러 가기(새 탭).
- * 1위는 큰 카드(featured), 나머지는 가로형 카드. highlightedReason 이 들어간 추천 이유는 강조 칩.
+ * 모든 카드가 같은 크기다. highlightedReason 이 들어간 추천 이유는 강조 칩.
  */
 export function RecommendationCard({
   item,
   rank,
-  isFeatured,
   highlightedReason,
   onTryOn,
 }: {
   item: RecommendationItem
   rank: number
-  isFeatured: boolean
   highlightedReason: string
   onTryOn: () => void
 }) {
   const messages = useMessages(RECOMMENDATION_MESSAGES)
   const { product, reasonTags } = item
   return (
-    <article aria-label={product.title} className={`recommendation-card${isFeatured ? ' is-featured' : ''}`}>
+    <article aria-label={product.title} className="recommendation-card">
       <div className="recommendation-card-image">
-        <img src={product.imageUrl} alt={product.title} loading={isFeatured ? 'eager' : 'lazy'} />
+        <img src={product.imageUrl} alt={product.title} loading={rank <= 3 ? 'eager' : 'lazy'} />
         <span className="recommendation-card-rank" aria-hidden="true">{messages.rank(rank)}</span>
       </div>
       <div className="recommendation-card-body">

@@ -42,11 +42,11 @@ describe('LandingPage', () => {
   })
 
   describe('비로그인', () => {
-    it('LOGIN 은 로그인 화면으로 이동하고 users/me 를 호출하지 않는다', async () => {
+    it('START 는 로그인 화면으로 이동하고 users/me 를 호출하지 않는다', async () => {
       const fetchMock = stubFetchResponse(200, newUser)
       renderLandingPage()
 
-      await userEvent.click(screen.getByRole('link', { name: 'LOGIN' }))
+      await userEvent.click(screen.getByRole('link', { name: 'START' }))
 
       expect(await screen.findByText('로그인 화면')).toBeInTheDocument()
       expect(fetchMock).not.toHaveBeenCalled()
@@ -101,7 +101,7 @@ describe('LandingPage', () => {
       await userEvent.click(screen.getByRole('button', { name: 'LOGOUT' }))
 
       expect(tokenStorage.get()).toBeNull()
-      expect(screen.getByRole('link', { name: 'LOGIN' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'START' })).toBeInTheDocument()
       expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
@@ -110,7 +110,7 @@ describe('LandingPage', () => {
       stubFetchResponse(401, { error: { code: ErrorCode.UNAUTHORIZED, message: 'UNAUTHORIZED' } })
       renderLandingPage()
 
-      expect(await screen.findByRole('link', { name: 'LOGIN' })).toBeInTheDocument()
+      expect(await screen.findByRole('link', { name: 'START' })).toBeInTheDocument()
       expect(tokenStorage.get()).toBeNull()
     })
 

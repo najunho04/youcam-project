@@ -16,7 +16,7 @@ const DECELERATION_RATE = 0.99
 
 type PointerSample = { x: number; time: number }
 
-export function rotationOf(offsetX: number): number {
+function rotationOf(offsetX: number): number {
   return Math.max(-MAXIMUM_ROTATION_DEGREES, Math.min(MAXIMUM_ROTATION_DEGREES, offsetX * ROTATION_DEGREES_PER_PIXEL))
 }
 
@@ -47,18 +47,16 @@ function presentationOffsetX(element: HTMLElement, fallbackOffsetX: number): num
 }
 
 /**
- * 카드 한 장. pointer events 로 1:1 드래그한다 (잡은 지점 기준).
+ * 카드 한 장. pointer events 로 1:1 드래그한다 (잡은 지점 기준). 끄는 방향에 따라 테두리가 초록(좋아요)·빨강(싫어요)으로 차오른다.
  * 가로 이동이 카드 너비의 30% 이상이거나, 놓은 속도로 투영한 착지점이 30% 를 넘으면 그 방향으로 확정(오른쪽 = 좋아요).
  * 아니면 살짝 튕기며 원위치로 돌아간다.
  */
 export function SwipeCard({
   card,
   onAnswer,
-  onDragProgress,
 }: {
   card: SwipeCardDto
-  onAnswer: (liked: boolean, releaseOffsetX: number) => void
-  onDragProgress?: (progress: number) => void
+  onAnswer: (liked: boolean) => void
 }) {
   const messages = useMessages(SWIPE_MESSAGES)
   const [offsetX, setOffsetX] = useState(0)
@@ -67,10 +65,6 @@ export function SwipeCard({
   const dragStart = useRef<{ pointerX: number; pointerY: number; offsetX: number } | null>(null)
   const pointerSamples = useRef<PointerSample[]>([])
   const cardWidth = useRef(0)
-
-  function reportProgress(nextOffsetX: number) {
-    if (onDragProgress && cardWidth.current > 0) onDragProgress(Math.min(1, Math.abs(nextOffsetX) / cardWidth.current))
-  }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     const element = event.currentTarget
@@ -93,7 +87,6 @@ export function SwipeCard({
     )
     setOffsetX(nextOffsetX)
     setOffsetY((event.clientY - start.pointerY) * VERTICAL_FOLLOW_RATIO)
-    reportProgress(nextOffsetX)
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -110,10 +103,9 @@ export function SwipeCard({
     setIsDragging(false)
     setOffsetX(0)
     setOffsetY(0)
-    reportProgress(0)
     if (cardWidth.current <= 0) return
-    if (Math.abs(finalOffsetX) >= confirmDistance) onAnswer(finalOffsetX > 0, finalOffsetX)
-    else if (Math.abs(projectedOffsetX) >= confirmDistance) onAnswer(projectedOffsetX > 0, finalOffsetX)
+    if (Math.abs(finalOffsetX) >= confirmDistance) onAnswer(finalOffsetX > 0)
+    else if (Math.abs(projectedOffsetX) >= confirmDistance) onAnswer(projectedOffsetX > 0)
   }
 
   function handlePointerCancel() {
@@ -121,10 +113,9 @@ export function SwipeCard({
     setIsDragging(false)
     setOffsetX(0)
     setOffsetY(0)
-    reportProgress(0)
   }
 
-  const stampOpacity = cardWidth.current > 0 ? Math.min(1, Math.abs(offsetX) / (cardWidth.current * CONFIRM_DISTANCE_RATIO)) : 0
+  const ringOpacity = cardWidth.current > 0 ? Math.min(1, Math.abs(offsetX) / (cardWidth.current * CONFIRM_DISTANCE_RATIO)) : 0
 
   return (
     <div
@@ -138,20 +129,8 @@ export function SwipeCard({
       style={{ transform: `translateX(${offsetX}px) translateY(${offsetY}px) rotate(${rotationOf(offsetX)}deg)` }}
     >
       <img src={card.imageUrl} alt={messages.cardImage} draggable={false} />
-      <span
-        className="swipe-stamp swipe-stamp-like"
-        aria-hidden="true"
-        style={{ opacity: offsetX > 0 ? stampOpacity : 0 }}
-      >
-        LIKE
-      </span>
-      <span
-        className="swipe-stamp swipe-stamp-nope"
-        aria-hidden="true"
-        style={{ opacity: offsetX < 0 ? stampOpacity : 0 }}
-      >
-        NOPE
-      </span>
+      <span className="swipe-card-ring swipe-card-ring-like" aria-hidden="true" style={{ opacity: offsetX > 0 ? ringOpacity : 0 }} />
+      <span className="swipe-card-ring swipe-card-ring-dislike" aria-hidden="true" style={{ opacity: offsetX < 0 ? ringOpacity : 0 }} />
     </div>
   )
 }

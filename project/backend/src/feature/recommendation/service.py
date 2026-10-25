@@ -14,7 +14,7 @@ from common.error import AppError, ErrorCode
 from feature.recommendation import repository
 from shared.color import SEASON_PALETTES, palette_lab
 
-MAXIMUM_ITEM_COUNT = 5
+MAXIMUM_ITEM_COUNT = 6
 MINIMUM_LIKED_COUNT = 3
 WARDROBE_WEIGHT = 1.5
 DISLIKED_WEIGHT = 0.5

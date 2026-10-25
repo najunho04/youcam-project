@@ -138,6 +138,53 @@ describe('SwipePage', () => {
     })
   })
 
+  it('답한 카드는 이전 자리로 옮겨 좋아요는 초록·싫어요는 빨강 테두리로 남기고, 다음 카드는 오른쪽에 보여준다', async () => {
+    stubFetch([{ status: 200, body: cardsResponse }])
+    renderSwipePage()
+    await screen.findByText('1 / 3')
+    const slotImageUrl = (slot: string) => document.querySelector(`[data-slot="${slot}"] img`)?.getAttribute('src')
+
+    expect(document.querySelector('[data-slot="previous"]')).toBeNull()
+    expect(slotImageUrl('next')).toBe('https://image.test/pins/12.jpg')
+
+    await userEvent.click(screen.getByRole('button', { name: '좋아요' }))
+    expect(slotImageUrl('previous')).toBe('https://image.test/pins/11.jpg')
+    expect(document.querySelector('[data-slot="previous"]')).toHaveAttribute('data-answer', 'like')
+    expect(slotImageUrl('next')).toBe('https://image.test/pins/13.jpg')
+
+    await userEvent.click(screen.getByRole('button', { name: '싫어요' }))
+    expect(slotImageUrl('previous')).toBe('https://image.test/pins/12.jpg')
+    expect(document.querySelector('[data-slot="previous"]')).toHaveAttribute('data-answer', 'dislike')
+  })
+
+  it('되돌리기를 누르면 직전 답을 취소하고 그 카드로 돌아간다', async () => {
+    const { fetchMock } = stubFetch([
+      { status: 200, body: cardsResponse },
+      { status: 200, body: answersResponse },
+    ])
+    renderSwipePage()
+    await screen.findByText('1 / 3')
+    expect(screen.getByRole('button', { name: '되돌리기' })).toBeDisabled()
+
+    await userEvent.click(screen.getByRole('button', { name: '좋아요' }))
+    await userEvent.click(screen.getByRole('button', { name: '되돌리기' }))
+    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+    expect(currentImageUrl()).toBe('https://image.test/pins/11.jpg')
+
+    await userEvent.click(screen.getByRole('button', { name: '싫어요' }))
+    await userEvent.click(screen.getByRole('button', { name: '좋아요' }))
+    await userEvent.click(screen.getByRole('button', { name: '좋아요' }))
+
+    expect(await screen.findByText('옷장 사진 화면')).toBeInTheDocument()
+    expect(sentAnswers(fetchMock, 1)).toEqual({
+      answers: [
+        { pinId: 11, liked: false },
+        { pinId: 12, liked: true },
+        { pinId: 13, liked: true },
+      ],
+    })
+  })
+
   it('드래그 중에는 카드가 포인터를 따라 이동·회전하고, 30% 미만이면 원위치로 돌아간다', async () => {
     stubFetch([{ status: 200, body: cardsResponse }])
     renderSwipePage()

@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -74,33 +74,10 @@ describe('LoginPage', () => {
     expect(await screen.findByText('메인 화면')).toBeInTheDocument()
   })
 
-  describe('반원 코디 카드', () => {
-    afterEach(() => {
-      vi.useRealTimers()
-    })
+  it('코디 카드 없이 가운데 정렬된 로그인 폼만 보여준다', () => {
+    renderLoginPage()
 
-    it('폼 옆에 메인과 같은 반원 코디 카드를 장식으로 보여준다 (누를 수 있는 버튼은 없다)', () => {
-      renderLoginPage()
-
-      const wheel = screen.getByRole('region', { name: 'ColorFit 코디' })
-      const looks = within(wheel).getAllByRole('img')
-      expect(looks).toHaveLength(5)
-      for (const look of looks) expect(look.getAttribute('src')).toMatch(/^\/landing\/.+\.webp$/)
-      expect(within(wheel).queryAllByRole('button')).toHaveLength(0)
-    })
-
-    it('시간이 지나면 다음 카드가 돌아서 가운데로 온다', () => {
-      vi.useFakeTimers()
-      renderLoginPage()
-      const frontLook = () =>
-        screen.getByRole('region', { name: 'ColorFit 코디' }).querySelector('[data-front="true"] img')
-
-      const firstFront = frontLook()?.getAttribute('src')
-      act(() => {
-        vi.advanceTimersByTime(3500)
-      })
-
-      expect(frontLook()?.getAttribute('src')).not.toBe(firstFront)
-    })
+    expect(screen.queryByRole('region', { name: 'ColorFit 코디' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument()
   })
 })
