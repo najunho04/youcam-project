@@ -1,10 +1,11 @@
 """YouCam API 클라이언트. 슬라이스는 get_youcam_client() 의존성으로만 접근한다.
 
-참고: https://docs.perfectcorp.com/reference/ai_skin_tone_analysis , https://docs.perfectcorp.com/reference/ai_clothes
+참고: https://docs.perfectcorp.com/reference/ai_skin_tone_analysis (AI Facial Color Tones Analyzer) , https://docs.perfectcorp.com/reference/ai_clothes
 - 입력은 URL 로 전달 (src_file_url / ref_file_url). File API 업로드 단계는 쓰지 않는다.
 - 작업은 비동기: POST /s2s/v2.0/task/{feature} → task_id → GET 으로 폴링 (running / success / error).
 - 폴링하지 않으면 타임아웃돼도 과금된다. 시작한 작업은 반드시 끝까지 폴링한다.
 """
+import re
 import time
 from dataclasses import dataclass
 from enum import StrEnum
@@ -13,24 +14,21 @@ from typing import Protocol
 
 import httpx
 
+from common.dto import FaceColorsDto
 from common.error import AppError, ErrorCode
 from shared.config import YouCamMode, get_settings
 
-SKIN_TONE_FEATURE = "skin-tone-analysis"
+FACE_COLORS_FEATURE = "skin-tone-analysis"  # 이름은 skin tone 이지만 피부·입술·눈·눈썹·머리 색을 모두 준다
 CLOTH_FEATURE = "cloth-v4"
 # 얼굴 인식 실패로 보는 코드 (error_face* 접두 코드 외). 공식 스펙 ai_skin_tone_analysis.yaml 기준
 FACE_ERROR_CODES = {"error_no_face", "error_below_min_image_size"}
+_HEX_COLOR_PATTERN = re.compile(r"#[0-9A-Fa-f]{6}")
 
 
 class YouCamTaskStatus(StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     ERROR = "error"
-
-
-@dataclass(frozen=True)
-class SkinToneResult:
-    skin_color_hex: str  # 예: "#E0B89A"
 
 
 @dataclass(frozen=True)
@@ -41,8 +39,9 @@ class ClothFittingTask:
 
 
 class YouCamClient(Protocol):
-    def analyze_skin_tone(self, image_url: str) -> SkinToneResult:
-        """작업 생성 + 완료까지 폴링 (동기). 얼굴 인식 실패 → FACE_NOT_DETECTED, 그 외 → EXTERNAL_API_FAILED."""
+    def analyze_face_colors(self, image_url: str) -> FaceColorsDto:
+        """작업 생성 + 완료까지 폴링 (동기). 얼굴 인식 실패 → FACE_NOT_DETECTED,
+        그 외 실패·hex 5개 중 하나라도 없음 → EXTERNAL_API_FAILED."""
         ...
 
     def start_cloth_fitting(self, user_image_url: str, garment_image_url: str) -> str:
@@ -90,13 +89,13 @@ class LiveYouCamClient:
                 raise AppError(ErrorCode.EXTERNAL_API_FAILED, "YouCam 응답 시간 초과")
             time.sleep(self._poll_interval_seconds)
 
-    def analyze_skin_tone(self, image_url: str) -> SkinToneResult:
-        task_id = self._create_task(SKIN_TONE_FEATURE, {"src_file_url": image_url})
-        data = self._wait_task(SKIN_TONE_FEATURE, task_id)
+    def analyze_face_colors(self, image_url: str) -> FaceColorsDto:
+        task_id = self._create_task(FACE_COLORS_FEATURE, {"src_file_url": image_url})
+        data = self._wait_task(FACE_COLORS_FEATURE, task_id)
         if data.get("task_status") == YouCamTaskStatus.SUCCESS:
             try:
-                return SkinToneResult(skin_color_hex=data["results"]["color"]["skin_color"])
-            except (KeyError, TypeError) as error:
+                return to_face_colors(data["results"]["color"])
+            except (KeyError, TypeError, ValueError) as error:
                 raise AppError(ErrorCode.EXTERNAL_API_FAILED, "YouCam 응답 형식 오류") from error
         error_code = str(data.get("error") or data.get("error_code") or "")
         if error_code.startswith("error_face") or error_code in FACE_ERROR_CODES:
@@ -122,19 +121,46 @@ class LiveYouCamClient:
         return self._to_cloth_task(self._wait_task(CLOTH_FEATURE, task_id))
 
 
+def _normalize_hex(value: object) -> str:
+    """'#b9947c' → '#B9947C'. 형식이 다르면 ValueError."""
+    if not isinstance(value, str) or not _HEX_COLOR_PATTERN.fullmatch(value):
+        raise ValueError(f"hex 색이 아님: {value!r}")
+    return value.upper()
+
+
+def to_face_colors(color: dict) -> FaceColorsDto:
+    """YouCam results.color → FaceColorsDto. hex 5개는 필수, 색 이름 2개는 없으면 None."""
+    return FaceColorsDto(
+        skin=_normalize_hex(color["skin_color"]),
+        lip=_normalize_hex(color["lip_color"]),
+        eye=_normalize_hex(color["eye_color"]),
+        eyebrow=_normalize_hex(color["eyebrow_color"]),
+        hair=_normalize_hex(color["hair_color"]),
+        eye_color_name=color.get("eye_color_name") or None,
+        hair_color_name=color.get("hair_color_name") or None,
+    )
+
+
+# 목업 기본값: 가을 웜톤 · 트루로 판정되는 얼굴 색 (shared.color.judge_personal_color 기준)
+MOCK_FACE_COLORS = FaceColorsDto(
+    skin="#E3C0A6", lip="#C8646E", eye="#3A2A22", eyebrow="#3B2E28", hair="#231C19",
+    eye_color_name="Brown", hair_color_name="Black",
+)
+
+
 class MockYouCamClient:
     """크레딧 없이 개발·테스트. 동작을 바꾸려면 속성을 덮어쓴다 (테스트에서 사용)."""
 
     def __init__(self) -> None:
-        self.skin_color_hex = "#E0B89A"
+        self.face_colors = MOCK_FACE_COLORS
         self.face_detected = True
         self.cloth_fitting_succeeds = True
         self._garment_url_by_task_id: dict[str, str] = {}
 
-    def analyze_skin_tone(self, image_url: str) -> SkinToneResult:
+    def analyze_face_colors(self, image_url: str) -> FaceColorsDto:
         if not self.face_detected:
             raise AppError(ErrorCode.FACE_NOT_DETECTED, "error_face_position_invalid")
-        return SkinToneResult(skin_color_hex=self.skin_color_hex)
+        return self.face_colors
 
     def start_cloth_fitting(self, user_image_url: str, garment_image_url: str) -> str:
         task_id = f"mock-task-{len(self._garment_url_by_task_id) + 1}"

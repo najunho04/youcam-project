@@ -19,6 +19,16 @@ export const Season = {
 } as const
 export type Season = (typeof Season)[keyof typeof Season]
 
+// 시즌마다 3개만 유효: 봄 TRUE·LIGHT·BRIGHT / 여름 TRUE·LIGHT·SOFT / 가을 TRUE·DEEP·SOFT / 겨울 TRUE·DEEP·BRIGHT
+export const SeasonSubtype = {
+  TRUE: 'TRUE',
+  LIGHT: 'LIGHT',
+  DEEP: 'DEEP',
+  BRIGHT: 'BRIGHT',
+  SOFT: 'SOFT',
+} as const
+export type SeasonSubtype = (typeof SeasonSubtype)[keyof typeof SeasonSubtype]
+
 export const Style = {
   MINIMAL: 'MINIMAL',
   CASUAL: 'CASUAL',
@@ -59,9 +69,31 @@ export interface AuthRequest {
   nickname: string
   password: string
 }
+// YouCam 얼굴 색 분석 응답 그대로. hex 는 대문자 #RRGGBB
+export interface FaceColorsDto {
+  skin: string
+  lip: string
+  eye: string
+  eyebrow: string
+  hair: string
+  eyeColorName: string | null // YouCam 이 준 영어 이름 (Brown, Blue …)
+  hairColorName: string | null
+}
+// 판정 근거. 축 3개는 0 이 경계
+export interface PersonalColorAnalysisDto {
+  faceColors: FaceColorsDto
+  warmth: number // ≥ 0 웜, < 0 쿨
+  depth: number // ≥ 0 딥, < 0 라이트
+  clarity: number // ≥ 0 선명, < 0 소프트
+  skinLightness: number // 피부 L*
+  contrast: number // 피부 L* − 머리·눈썹·눈 중 가장 어두운 L*
+}
 export interface PersonalColorDto {
   season: Season
-  palette: string[]
+  subtype: SeasonSubtype
+  palette: string[] // hex 8개, 12유형별 어울리는 색
+  avoidPalette: string[] // hex 6개, 시즌별 피해야 할 색
+  analysis: PersonalColorAnalysisDto
   selfieUrl: string // 얼굴 사진
   bodyImageUrl: string // 상반신 사진 (가상 피팅 원본)
 }
@@ -117,7 +149,8 @@ export interface WardrobePhotosResponse {
 export interface ProductDto {
   id: number
   title: string
-  price: number
+  price: number // 소수 2자리까지
+  currency: string // ISO 4217, 예: "USD"
   mallName: string
   purchaseUrl: string
   imageUrl: string
@@ -133,6 +166,7 @@ export interface RecommendationItem {
 export interface RecommendationResponse {
   styleTags: string[]
   season: Season
+  subtype: SeasonSubtype
   palette: string[]
   isFallback: boolean
   items: RecommendationItem[]

@@ -1,11 +1,13 @@
 """SQLAlchemy 모델. 스키마 원본은 project-all-docs/erd.md. 응답으로 직접 내보내지 않는다 (DTO 경유)."""
 from datetime import datetime
+from decimal import Decimal
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, Float, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from common.enums import AgeGroup, Category, EmbeddingDomain, FittingStatus, Gender, Season, Style
+from common.enums import AgeGroup, Category, EmbeddingDomain, FittingStatus, Gender, ProductSource, Season, SeasonSubtype, Style
 
 EMBEDDING_DIMENSION = 512
 WARDROBE_PHOTO_LIMIT = 4
@@ -29,20 +31,28 @@ class User(Base):
     age_group: Mapped[AgeGroup | None] = mapped_column(_enum_column(AgeGroup), nullable=True)
     gender: Mapped[Gender | None] = mapped_column(_enum_column(Gender), nullable=True)
     season: Mapped[Season | None] = mapped_column(_enum_column(Season), nullable=True)
-    selfie_key: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 얼굴 사진 (피부톤 분석)
+    season_subtype: Mapped[SeasonSubtype | None] = mapped_column(_enum_column(SeasonSubtype), nullable=True)  # season 과 함께 쓰고 함께 NULL
+    # YouCam 얼굴 색 분석 응답 그대로 (FaceColorsDto 의 camelCase JSON). 판정 근거는 저장하지 않고 이 값으로 다시 계산
+    face_colors: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    selfie_key: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 얼굴 사진 (얼굴 색 분석)
     body_image_key: Mapped[str | None] = mapped_column(String(255), nullable=True)  # 상반신 사진 (가상 피팅 원본)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Product(Base):
     __tablename__ = "products"
-    __table_args__ = (Index("ix_products_filter", "gender", "age_group", "category"),)
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_products_source_external_id"),
+        Index("ix_products_filter", "source", "gender", "age_group", "category"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    naver_product_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    source: Mapped[ProductSource] = mapped_column(_enum_column(ProductSource), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(100), nullable=False)  # 출처의 상품 ID (eBay itemId)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    price: Mapped[int] = mapped_column(Integer, nullable=False)
-    mall_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)  # ISO 4217 (USD, KRW)
+    mall_name: Mapped[str] = mapped_column(String(100), nullable=False)  # eBay 는 판매자 이름
     purchase_url: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str] = mapped_column(Text, nullable=False)
     gender: Mapped[Gender] = mapped_column(_enum_column(Gender), nullable=False)

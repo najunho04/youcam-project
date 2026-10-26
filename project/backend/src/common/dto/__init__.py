@@ -2,7 +2,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from common.enums import AgeGroup, FittingStatus, Gender, Season, Style
+from common.enums import AgeGroup, FittingStatus, Gender, Season, SeasonSubtype, Style
 from common.error import ErrorCode
 
 
@@ -26,9 +26,33 @@ class AuthRequest(CamelModel):
     password: str = Field(min_length=4, max_length=72)
 
 
+class FaceColorsDto(CamelModel):
+    """YouCam 얼굴 색 분석 응답 그대로. hex 는 대문자 #RRGGBB. users.face_colors 에 이 JSON 을 저장한다."""
+    skin: str
+    lip: str
+    eye: str
+    eyebrow: str
+    hair: str
+    eye_color_name: str | None  # YouCam 이 준 영어 이름 (Brown, Blue …)
+    hair_color_name: str | None
+
+
+class PersonalColorAnalysisDto(CamelModel):
+    """판정 근거. 축 3개는 0 이 경계. 숫자는 소수 둘째 자리 반올림."""
+    face_colors: FaceColorsDto
+    warmth: float  # ≥ 0 웜, < 0 쿨
+    depth: float  # ≥ 0 딥, < 0 라이트
+    clarity: float  # ≥ 0 선명, < 0 소프트
+    skin_lightness: float  # 피부 L*
+    contrast: float  # 피부 L* − 머리·눈썹·눈 중 가장 어두운 L*
+
+
 class PersonalColorDto(CamelModel):
     season: Season
-    palette: list[str]  # hex, 예: "#C8A27A"
+    subtype: SeasonSubtype
+    palette: list[str]  # hex 8개, 12유형별 어울리는 색. 예: "#C8A27A"
+    avoid_palette: list[str]  # hex 6개, 시즌별 피해야 할 색
+    analysis: PersonalColorAnalysisDto
     selfie_url: str  # 얼굴 사진
     body_image_url: str  # 상반신 사진 (가상 피팅 원본)
 
@@ -91,7 +115,8 @@ class WardrobePhotosResponse(CamelModel):
 class ProductDto(CamelModel):
     id: int
     title: str
-    price: int
+    price: float  # 소수 2자리까지 (DB numeric)
+    currency: str  # ISO 4217, 예: "USD"
     mall_name: str
     purchase_url: str
     image_url: str
@@ -109,6 +134,7 @@ class RecommendationItem(CamelModel):
 class RecommendationResponse(CamelModel):
     style_tags: list[str]
     season: Season
+    subtype: SeasonSubtype
     palette: list[str]
     is_fallback: bool
     items: list[RecommendationItem]

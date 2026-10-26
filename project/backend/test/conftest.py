@@ -5,6 +5,7 @@
 """
 import io
 import os
+from decimal import Decimal
 
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://colorfit:colorfit@localhost:5432/colorfit_test"
@@ -23,7 +24,7 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from common.entity import Base, Pin, Product, User  # noqa: E402
-from common.enums import AgeGroup, Category, Gender, Style  # noqa: E402
+from common.enums import AgeGroup, Category, Gender, ProductSource, Style  # noqa: E402
 from main import app  # noqa: E402
 from shared.database import get_engine, get_session_factory  # noqa: E402
 from shared.embedding import FakeEmbeddingModel, get_embedding_model  # noqa: E402
@@ -62,7 +63,7 @@ def storage() -> MemoryStorage:
 
 @pytest.fixture
 def youcam_client() -> MockYouCamClient:
-    """속성으로 동작 변경: face_detected, skin_color_hex, cloth_fitting_succeeds"""
+    """속성으로 동작 변경: face_detected, face_colors(FaceColorsDto), cloth_fitting_succeeds"""
     return get_youcam_client()  # type: ignore[return-value]
 
 
@@ -73,7 +74,8 @@ def embedding_model() -> FakeEmbeddingModel:
 
 @pytest.fixture
 def create_user(database_session: Session) -> Callable[..., User]:
-    """DB 에 직접 사용자 생성. create_user(nickname="a", age_group=..., gender=..., season=..., selfie_key=...)"""
+    """DB 에 직접 사용자 생성. create_user(nickname="a", age_group=..., gender=..., season=..., season_subtype=...,
+    face_colors=FaceColorsDto(...).model_dump(by_alias=True), selfie_key=...)"""
 
     def factory(nickname: str = "tester", password: str = "password1234", **columns) -> User:
         user = User(nickname=nickname, password_hash=hash_password(password), **columns)
@@ -98,10 +100,12 @@ def create_product(database_session: Session, embedding_model: FakeEmbeddingMode
         counter["value"] += 1
         number = counter["value"]
         defaults = dict(
-            naver_product_id=f"naver-{number}",
-            title=f"테스트 니트 {number}",
-            price=39000,
-            mall_name="테스트몰",
+            source=ProductSource.EBAY,
+            external_id=f"ebay-{number}",
+            title=f"Test Knit Top {number}",
+            price=Decimal("39.99"),
+            currency="USD",
+            mall_name="test-seller",
             purchase_url=f"https://shopping.test/products/{number}",
             image_url=f"https://image.test/products/{number}.jpg",
             gender=Gender.FEMALE,

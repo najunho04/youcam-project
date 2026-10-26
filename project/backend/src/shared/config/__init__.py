@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     embedding_mode: EmbeddingMode = EmbeddingMode.FASHION_CLIP
     embedding_model_name: str = "patrickjohncyh/fashion-clip"
 
+    ebay_client_id: str = ""
+    ebay_client_secret: str = ""
+    ebay_base_url: str = "https://api.ebay.com"
+    ebay_marketplace_id: str = "EBAY_US"
+
+    # 한국어 UI용 네이버 상품 (최후순위)
     naver_client_id: str = ""
     naver_client_secret: str = ""
 

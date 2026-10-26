@@ -53,7 +53,13 @@ export function useMessages<Messages>(messages: Record<Language, Messages>): Mes
   return messages[useLanguage()]
 }
 
-/** 원화 가격. 영어는 ₩12,900, 한국어는 12,900원. */
+/** 상품 가격을 통화 기준으로. USD 는 $19.99, KRW 는 영어 ₩12,900 / 한국어 12,900원. */
+export function formatMoney(price: number, currency: string, language: Language): string {
+  if (currency === 'KRW') return formatPrice(price, language)
+  return new Intl.NumberFormat(language === 'ko' ? 'ko-KR' : 'en-US', { style: 'currency', currency }).format(price)
+}
+
+/** 원화 가격. 영어는 ₩12,900, 한국어는 12,900원. 상품 가격은 formatMoney 를 쓴다. */
 export function formatPrice(price: number, language: Language): string {
   return language === 'ko' ? `${price.toLocaleString('ko-KR')}원` : `₩${price.toLocaleString('en-US')}`
 }
