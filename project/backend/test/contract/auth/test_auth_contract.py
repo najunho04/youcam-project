@@ -13,14 +13,19 @@ import pytest
 from sqlalchemy import select
 
 from common.entity import User
-from common.enums import AgeGroup, Gender, Season
+from common.dto import FaceColorsDto
+from common.enums import AgeGroup, Gender, Season, SeasonSubtype
 from common.error import ErrorCode
-from shared.color import SEASON_PALETTES
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, judge_personal_color
 from shared.config import get_settings
 from shared.security import verify_password
 
 USER_DTO_FIELDS = {"id", "nickname", "ageGroup", "gender", "personalColor"}
-PERSONAL_COLOR_DTO_FIELDS = {"season", "palette", "selfieUrl", "bodyImageUrl"}
+PERSONAL_COLOR_DTO_FIELDS = {"season", "subtype", "palette", "avoidPalette", "analysis", "selfieUrl", "bodyImageUrl"}
+FACE_COLORS = {
+    "skin": "#E3C0A6", "lip": "#C8646E", "eye": "#3A2A22", "eyebrow": "#3B2E28", "hair": "#231C19",
+    "eyeColorName": "Brown", "hairColorName": "Black",
+}
 AUTH_RESPONSE_FIELDS = {"accessToken", "user"}
 
 
@@ -116,7 +121,7 @@ def test_login_does_not_distinguish_unknown_nickname_from_wrong_password(client,
 
 
 # ---- GET /api/users/me ----
-def test_me_fills_personal_color_only_when_season_selfie_and_body_image_all_exist(
+def test_me_fills_personal_color_only_when_season_subtype_face_colors_selfie_and_body_image_all_exist(
     client, create_user, auth_headers, storage
 ):
     complete_user = create_user(
@@ -124,13 +129,24 @@ def test_me_fills_personal_color_only_when_season_selfie_and_body_image_all_exis
         age_group=AgeGroup.TWENTIES,
         gender=Gender.FEMALE,
         season=Season.AUTUMN_WARM,
+        season_subtype=SeasonSubtype.DEEP,
+        face_colors=FACE_COLORS,
         selfie_key="selfies/1/face.jpg",
         body_image_key="body-images/1/body.jpg",
     )
-    partial_user = create_user(nickname="partial", season=Season.AUTUMN_WARM, selfie_key="selfies/2/face.jpg")
+    partial_user = create_user(
+        nickname="partial", season=Season.AUTUMN_WARM, season_subtype=SeasonSubtype.TRUE, face_colors=FACE_COLORS,
+        selfie_key="selfies/2/face.jpg",
+    )
+    # 시즌·사진은 있지만 face_colors 가 없는 사용자 (판정 근거를 만들 수 없음)
+    no_face_colors_user = create_user(
+        nickname="nocolors", season=Season.AUTUMN_WARM, season_subtype=SeasonSubtype.TRUE,
+        selfie_key="selfies/3/face.jpg", body_image_key="body-images/3/body.jpg",
+    )
 
     complete_response = client.get("/api/users/me", headers=auth_headers(complete_user))
     partial_response = client.get("/api/users/me", headers=auth_headers(partial_user))
+    no_face_colors_response = client.get("/api/users/me", headers=auth_headers(no_face_colors_user))
 
     assert complete_response.status_code == 200
     complete_body = complete_response.json()
@@ -142,12 +158,19 @@ def test_me_fills_personal_color_only_when_season_selfie_and_body_image_all_exis
     personal_color = complete_body["personalColor"]
     assert set(personal_color) == PERSONAL_COLOR_DTO_FIELDS
     assert personal_color["season"] == Season.AUTUMN_WARM.value
-    assert personal_color["palette"] == SEASON_PALETTES[Season.AUTUMN_WARM]
+    assert personal_color["subtype"] == SeasonSubtype.DEEP.value
+    assert personal_color["palette"] == SUBTYPE_PALETTES[(Season.AUTUMN_WARM, SeasonSubtype.DEEP)]
+    assert personal_color["avoidPalette"] == AVOID_PALETTES[Season.AUTUMN_WARM]
+    # analysis 는 저장된 face_colors 로 다시 계산한 판정 근거
+    expected_analysis = judge_personal_color(FaceColorsDto.model_validate(FACE_COLORS)).analysis
+    assert personal_color["analysis"] == expected_analysis.model_dump(by_alias=True)
     assert personal_color["selfieUrl"] == storage.get_url("selfies/1/face.jpg")
     assert personal_color["bodyImageUrl"] == storage.get_url("body-images/1/body.jpg")
 
     assert partial_response.status_code == 200
     assert partial_response.json()["personalColor"] is None
+    assert no_face_colors_response.status_code == 200
+    assert no_face_colors_response.json()["personalColor"] is None
 
 
 def _token_with(user_id: int, secret: str, expires_at: datetime) -> str:

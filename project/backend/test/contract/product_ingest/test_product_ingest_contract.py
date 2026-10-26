@@ -1,62 +1,76 @@
 """product_ingest 슬라이스 계약 테스트. 컨텍스트 카드(슬라이스: product_ingest)의 배치 입출력만 검증한다.
 
 feature.product_ingest.run_ingest(search, download) -> IngestReport { saved, failed_products, failed_keywords }
-- 키워드: Gender × AgeGroup × Style (enum 정의 순서), 검색어 "{성별} {나이대} {스타일} 상의", display=50
-- products upsert (naver_product_id 기준). 나중 키워드 값으로 덮어씀. updated_at 갱신
-- 상품 단위 실패 → 그 상품만 건너뜀 / 네이버 API 실패 → 그 키워드만 건너뜀
+- 키워드: Gender × AgeGroup × Style (enum 정의 순서), 검색어 "{성별} {나이대} {스타일} top", limit=50
+- eBay itemSummaries[] → products upsert ((source=EBAY, external_id) 기준). 나중 키워드 값으로 덮어씀. updated_at 갱신
+- 대표색: 테두리 배경색 제거 → K-means(k=3) 가장 큰 묶음의 중심
+- 배치가 끝나면 embedding_centroids(PRODUCT) = products 전체 embedding 평균
+- 상품 단위 실패 → 그 상품만 건너뜀 / eBay API 실패 → 그 키워드만 건너뜀
 """
 import io
 from collections.abc import Callable
+from decimal import Decimal
 
 import numpy as np
 import pytest
 from PIL import Image
 from sqlalchemy import func, select
 
-from common.entity import EMBEDDING_DIMENSION, Product
-from common.enums import AgeGroup, Category, Gender, Style
+from common.entity import EMBEDDING_DIMENSION, EmbeddingCentroid, Product
+from common.enums import AgeGroup, Category, EmbeddingDomain, Gender, ProductSource, Style
 from common.error import AppError, ErrorCode
 from shared.color import rgb_to_lab
 from shared.embedding import FakeEmbeddingModel
 
-GENDER_WORDS = {Gender.FEMALE: "여성", Gender.MALE: "남성"}
+GENDER_WORDS = {Gender.FEMALE: "women", Gender.MALE: "men"}
 AGE_GROUP_WORDS = {
-    AgeGroup.LATE_TEENS: "10대",
-    AgeGroup.TWENTIES: "20대",
-    AgeGroup.THIRTIES: "30대",
-    AgeGroup.FORTIES_PLUS: "40대",
+    AgeGroup.LATE_TEENS: "teen",
+    AgeGroup.TWENTIES: "20s",
+    AgeGroup.THIRTIES: "30s",
+    AgeGroup.FORTIES_PLUS: "40s",
 }
 STYLE_WORDS = {
-    Style.MINIMAL: "미니멀",
-    Style.CASUAL: "캐주얼",
-    Style.STREET: "스트릿",
-    Style.FORMAL: "포멀",
-    Style.LOVELY: "러블리",
+    Style.MINIMAL: "minimal",
+    Style.CASUAL: "casual",
+    Style.STREET: "streetwear",
+    Style.FORMAL: "formal",
+    Style.LOVELY: "feminine",
 }
 EXPECTED_QUERIES = [
-    f"{GENDER_WORDS[gender]} {AGE_GROUP_WORDS[age_group]} {STYLE_WORDS[style]} 상의"
+    f"{GENDER_WORDS[gender]} {AGE_GROUP_WORDS[age_group]} {STYLE_WORDS[style]} top"
     for gender in Gender
     for age_group in AgeGroup
     for style in Style
 ]
 KEYWORD_COUNT = len(EXPECTED_QUERIES)  # 40
-DISPLAY_COUNT = 50
+LIMIT_COUNT = 50
 
-FEMALE_TWENTIES_MINIMAL = "여성 20대 미니멀 상의"
-MALE_THIRTIES_STREET = "남성 30대 스트릿 상의"
+FEMALE_TWENTIES_MINIMAL = "women 20s minimal top"
+MALE_THIRTIES_STREET = "men 30s streetwear top"
 
 
-def naver_item(product_id: str, **overrides) -> dict:
+def ebay_item(item_id: str, **overrides) -> dict:
+    """eBay Browse item_summary/search 응답의 itemSummaries[] 한 개."""
     item = {
-        "productId": product_id,
-        "title": f"상품 {product_id}",
-        "link": f"https://shopping.test/products/{product_id}",
-        "image": f"https://image.test/products/{product_id}.png",
-        "lprice": "39000",
-        "mallName": "테스트몰",
+        "itemId": item_id,
+        "title": f"Item {item_id}",
+        "price": {"value": "39.99", "currency": "USD"},
+        "image": {"imageUrl": f"https://image.test/items/{item_id}.png"},
+        "itemWebUrl": f"https://www.ebay.test/itm/{item_id}",
+        "seller": {"username": "test-seller"},
     }
     item.update(overrides)
     return item
+
+
+def image_url_of(item: dict) -> str:
+    return item["image"]["imageUrl"]
+
+
+def png_bytes(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 class FakeSearch:
@@ -67,10 +81,10 @@ class FakeSearch:
         self.failing_queries = failing_queries or set()
         self.calls: list[tuple[str, int]] = []
 
-    def __call__(self, query: str, display: int) -> list[dict]:
-        self.calls.append((query, display))
+    def __call__(self, query: str, limit: int) -> list[dict]:
+        self.calls.append((query, limit))
         if query in self.failing_queries:
-            raise AppError(ErrorCode.EXTERNAL_API_FAILED, "네이버 API 실패")
+            raise AppError(ErrorCode.EXTERNAL_API_FAILED, "eBay API 실패")
         return [dict(item) for item in self.items_by_query.get(query, [])]
 
 
@@ -98,36 +112,43 @@ def assert_report(report, saved: int, failed_products: int, failed_keywords: int
 
 def all_products(database_session) -> list[Product]:
     database_session.expire_all()
-    return list(database_session.scalars(select(Product).order_by(Product.naver_product_id)))
+    return list(database_session.scalars(select(Product).order_by(Product.external_id)))
+
+
+def product_centroid(database_session) -> EmbeddingCentroid | None:
+    database_session.expire_all()
+    return database_session.get(EmbeddingCentroid, EmbeddingDomain.PRODUCT)
 
 
 def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
     database_session, sample_image_bytes: Callable[..., bytes]
 ) -> None:
-    color_item = naver_item(
-        "1001",
-        title="<b>여성</b> 미니멀 <b>니트</b> &amp; 가디건 &lt;신상&gt;",
-        lprice="39000",
-        mallName="컬러몰",
+    color_item = ebay_item(
+        "v1|1001|0",
+        title="Women's Minimal Knit Top & Cardigan",
+        price={"value": "39.99", "currency": "USD"},
+        seller={"username": "color-shop"},
     )
-    white_item = naver_item("1002", lprice="15900")
+    no_seller_item = ebay_item("v1|1002|0", price={"value": "15.50", "currency": "USD"})
+    del no_seller_item["seller"]
     color_image = sample_image_bytes(color=(200, 160, 130), image_format="PNG")
     white_image = sample_image_bytes(color=(255, 255, 255), image_format="PNG")
-    search = FakeSearch({FEMALE_TWENTIES_MINIMAL: [color_item, white_item]})
-    download = FakeDownload({color_item["image"]: color_image, white_item["image"]: white_image})
+    search = FakeSearch({FEMALE_TWENTIES_MINIMAL: [color_item, no_seller_item]})
+    download = FakeDownload({image_url_of(color_item): color_image, image_url_of(no_seller_item): white_image})
 
     report = run(search, download)
 
     assert_report(report, saved=2, failed_products=0, failed_keywords=0)
-    assert search.calls == [(query, DISPLAY_COUNT) for query in EXPECTED_QUERIES]
+    assert search.calls == [(query, LIMIT_COUNT) for query in EXPECTED_QUERIES]
 
-    color_product, white_product = all_products(database_session)
-    assert color_product.naver_product_id == "1001"
-    assert color_product.title == "여성 미니멀 니트 & 가디건 <신상>"
-    assert color_product.price == 39000
-    assert color_product.mall_name == "컬러몰"
-    assert color_product.purchase_url == color_item["link"]
-    assert color_product.image_url == color_item["image"]
+    color_product, no_seller_product = all_products(database_session)
+    assert (color_product.source, color_product.external_id) == (ProductSource.EBAY, "v1|1001|0")
+    assert color_product.title == "Women's Minimal Knit Top & Cardigan"
+    assert color_product.price == Decimal("39.99")
+    assert color_product.currency == "USD"
+    assert color_product.mall_name == "color-shop"
+    assert color_product.purchase_url == color_item["itemWebUrl"]
+    assert color_product.image_url == image_url_of(color_item)
     assert (color_product.gender, color_product.age_group, color_product.style, color_product.category) == (
         Gender.FEMALE,
         AgeGroup.TWENTIES,
@@ -135,11 +156,12 @@ def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
         Category.TOP,
     )
     assert color_product.updated_at is not None
-    # 단색 → 흰 배경 제외 평균 = 그 색
+    # 단색 → 배경 제거 후 남는 픽셀이 5% 미만이라 영역 전체 → K-means 중심 = 그 색
     assert list(color_product.color_lab) == pytest.approx(list(rgb_to_lab(200, 160, 130)), abs=0.01)
-    # 전부 흰색 → 제외 후 남는 픽셀 없음 → 가운데 영역 전체 평균 = 흰색
-    assert white_product.price == 15900
-    assert list(white_product.color_lab) == pytest.approx(list(rgb_to_lab(255, 255, 255)), abs=0.01)
+    # 판매자 없음 → "eBay"
+    assert no_seller_product.mall_name == "eBay"
+    assert no_seller_product.price == Decimal("15.50")
+    assert list(no_seller_product.color_lab) == pytest.approx(list(rgb_to_lab(255, 255, 255)), abs=0.01)
 
     embedding = np.array(color_product.embedding, dtype=float)
     assert embedding.shape == (EMBEDDING_DIMENSION,)
@@ -148,16 +170,16 @@ def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
     assert embedding.tolist() == pytest.approx(expected_embedding, abs=1e-5)
 
 
-def test_representative_color_excludes_white_background(database_session) -> None:
-    # 흰 배경 400x400, 가운데 100x100 만 색. 가운데 50% 영역(100~300)에서 흰 픽셀을 빼면 그 색만 남는다
-    image = Image.new("RGB", (400, 400), (255, 255, 255))
-    image.paste((30, 90, 170), (150, 150, 250, 250))
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    item = naver_item("1501")
+def test_representative_color_removes_border_background_and_takes_largest_cluster(database_session) -> None:
+    # 회색 배경 400x400. 가운데 80% 영역(40~360) 안에 큰 파란 사각형(160x160)과 작은 빨간 사각형(40x40)
+    # 테두리 색(회색)과 비슷한 픽셀을 빼면 파랑·빨강만 남고, 픽셀이 더 많은 파랑이 대표색
+    image = Image.new("RGB", (400, 400), (180, 180, 180))
+    image.paste((30, 90, 170), (120, 120, 280, 280))
+    image.paste((200, 30, 30), (290, 290, 330, 330))
+    item = ebay_item("v1|1501|0")
     search = FakeSearch({FEMALE_TWENTIES_MINIMAL: [item]})
 
-    report = run(search, FakeDownload({item["image"]: buffer.getvalue()}))
+    report = run(search, FakeDownload({image_url_of(item): png_bytes(image)}))
 
     assert_report(report, saved=1, failed_products=0, failed_keywords=0)
     (product,) = all_products(database_session)
@@ -167,36 +189,36 @@ def test_representative_color_excludes_white_background(database_session) -> Non
 def test_running_twice_updates_existing_row_without_duplicates(
     database_session, sample_image_bytes: Callable[..., bytes]
 ) -> None:
-    first_item = naver_item("2001", lprice="30000", title="처음 제목")
+    first_item = ebay_item("v1|2001|0", price={"value": "30.00", "currency": "USD"}, title="First Title")
     image = sample_image_bytes(color=(40, 80, 160), image_format="PNG")
-    download = FakeDownload({first_item["image"]: image})
+    download = FakeDownload({image_url_of(first_item): image})
 
     first_report = run(FakeSearch({FEMALE_TWENTIES_MINIMAL: [first_item]}), download)
     assert_report(first_report, saved=1, failed_products=0, failed_keywords=0)
     (first_product,) = all_products(database_session)
     first_id, first_updated_at = first_product.id, first_product.updated_at
 
-    second_item = naver_item("2001", lprice="25000", title="바뀐 제목")
+    second_item = ebay_item("v1|2001|0", price={"value": "25.00", "currency": "USD"}, title="Changed Title")
     second_report = run(FakeSearch({FEMALE_TWENTIES_MINIMAL: [second_item]}), download)
 
     assert_report(second_report, saved=1, failed_products=0, failed_keywords=0)
     assert database_session.scalar(select(func.count()).select_from(Product)) == 1
     (second_product,) = all_products(database_session)
     assert second_product.id == first_id
-    assert second_product.price == 25000
-    assert second_product.title == "바뀐 제목"
+    assert second_product.price == Decimal("25.00")
+    assert second_product.title == "Changed Title"
     assert second_product.updated_at > first_updated_at
 
 
 def test_same_product_in_multiple_keywords_takes_later_keyword_values(
     database_session, sample_image_bytes: Callable[..., bytes]
 ) -> None:
-    earlier_item = naver_item("3001", title="앞 키워드 제목", lprice="10000")
-    later_item = naver_item("3001", title="뒤 키워드 제목", lprice="20000")
+    earlier_item = ebay_item("v1|3001|0", title="Earlier Title", price={"value": "10.00", "currency": "USD"})
+    later_item = ebay_item("v1|3001|0", title="Later Title", price={"value": "20.00", "currency": "USD"})
     image = sample_image_bytes(color=(90, 120, 60), image_format="PNG")
     search = FakeSearch({FEMALE_TWENTIES_MINIMAL: [earlier_item], MALE_THIRTIES_STREET: [later_item]})
 
-    report = run(search, FakeDownload({earlier_item["image"]: image}))
+    report = run(search, FakeDownload({image_url_of(earlier_item): image}))
 
     assert_report(report, saved=2, failed_products=0, failed_keywords=0)
     (product,) = all_products(database_session)
@@ -206,33 +228,30 @@ def test_same_product_in_multiple_keywords_takes_later_keyword_values(
         Style.STREET,
         Category.TOP,
     )
-    assert product.title == "뒤 키워드 제목"
-    assert product.price == 20000
+    assert product.title == "Later Title"
+    assert product.price == Decimal("20.00")
 
 
 def test_failed_products_are_skipped_and_counted(database_session, sample_image_bytes: Callable[..., bytes]) -> None:
-    valid_item = naver_item("4001")
-    download_failure_item = naver_item("4002")  # download 에 등록하지 않음 → AppError
-    not_image_item = naver_item("4003")
-    missing_product_id_item = naver_item("4004")
-    del missing_product_id_item["productId"]
-    missing_mall_name_item = naver_item("4005")
-    del missing_mall_name_item["mallName"]
-    invalid_price_item = naver_item("4006", lprice="가격문의")
+    valid_item = ebay_item("v1|4001|0")
+    download_failure_item = ebay_item("v1|4002|0")  # download 에 등록하지 않음 → AppError
+    not_image_item = ebay_item("v1|4003|0")
+    missing_item_id_item = ebay_item("v1|4004|0")
+    del missing_item_id_item["itemId"]
+    missing_image_item = ebay_item("v1|4005|0")
+    del missing_image_item["image"]
+    invalid_price_item = ebay_item("v1|4006|0", price={"value": "see description", "currency": "USD"})
     image = sample_image_bytes(color=(150, 50, 50), image_format="PNG")
-    bytes_by_url = {
-        item["image"]: image
-        for item in (valid_item, missing_product_id_item, missing_mall_name_item, invalid_price_item)
-    }
-    bytes_by_url[not_image_item["image"]] = b"this is not an image"
+    bytes_by_url = {image_url_of(item): image for item in (valid_item, missing_item_id_item, invalid_price_item)}
+    bytes_by_url[image_url_of(not_image_item)] = b"this is not an image"
     search = FakeSearch(
         {
             FEMALE_TWENTIES_MINIMAL: [
                 valid_item,
                 download_failure_item,
                 not_image_item,
-                missing_product_id_item,
-                missing_mall_name_item,
+                missing_item_id_item,
+                missing_image_item,
                 invalid_price_item,
             ]
         }
@@ -241,25 +260,25 @@ def test_failed_products_are_skipped_and_counted(database_session, sample_image_
     report = run(search, FakeDownload(bytes_by_url))
 
     assert_report(report, saved=1, failed_products=5, failed_keywords=0)
-    assert [product.naver_product_id for product in all_products(database_session)] == ["4001"]
+    assert [product.external_id for product in all_products(database_session)] == ["v1|4001|0"]
 
 
 def test_failed_keyword_is_skipped_and_other_keywords_continue(
     database_session, sample_image_bytes: Callable[..., bytes]
 ) -> None:
-    skipped_item = naver_item("5001")
-    saved_item = naver_item("5002")
+    skipped_item = ebay_item("v1|5001|0")
+    saved_item = ebay_item("v1|5002|0")
     image = sample_image_bytes(color=(60, 60, 60), image_format="PNG")
     search = FakeSearch(
         {FEMALE_TWENTIES_MINIMAL: [skipped_item], MALE_THIRTIES_STREET: [saved_item]},
         failing_queries={FEMALE_TWENTIES_MINIMAL},
     )
 
-    report = run(search, FakeDownload({skipped_item["image"]: image, saved_item["image"]: image}))
+    report = run(search, FakeDownload({image_url_of(skipped_item): image, image_url_of(saved_item): image}))
 
     assert_report(report, saved=1, failed_products=0, failed_keywords=1)
     assert [query for query, _ in search.calls] == EXPECTED_QUERIES
-    assert [product.naver_product_id for product in all_products(database_session)] == ["5002"]
+    assert [product.external_id for product in all_products(database_session)] == ["v1|5002|0"]
 
 
 def test_all_keywords_failing_saves_nothing(database_session) -> None:
@@ -269,3 +288,28 @@ def test_all_keywords_failing_saves_nothing(database_session) -> None:
 
     assert_report(report, saved=0, failed_products=0, failed_keywords=KEYWORD_COUNT)
     assert all_products(database_session) == []
+
+
+def test_product_centroid_is_mean_of_all_product_embeddings_after_ingest(
+    database_session, create_product, sample_image_bytes: Callable[..., bytes]
+) -> None:
+    # 이번 배치에서 빠진 기존 상품도 평균에 들어간다 (products 전체 평균)
+    existing_product = create_product(external_id="existing")
+    first_item, second_item = ebay_item("v1|6001|0"), ebay_item("v1|6002|0")
+    search = FakeSearch({FEMALE_TWENTIES_MINIMAL: [first_item], MALE_THIRTIES_STREET: [second_item]})
+    download = FakeDownload(
+        {
+            image_url_of(first_item): sample_image_bytes(color=(10, 20, 30), image_format="PNG"),
+            image_url_of(second_item): sample_image_bytes(color=(200, 100, 50), image_format="PNG"),
+        }
+    )
+
+    report = run(search, download)
+
+    assert_report(report, saved=2, failed_products=0, failed_keywords=0)
+    products = all_products(database_session)
+    assert {product.id for product in products} >= {existing_product.id}
+    expected_centroid = np.mean([np.array(product.embedding, dtype=float) for product in products], axis=0)
+    centroid = product_centroid(database_session)
+    assert centroid is not None
+    assert np.array(centroid.embedding, dtype=float).tolist() == pytest.approx(expected_centroid.tolist(), abs=1e-5)

@@ -32,7 +32,7 @@ from shared.database import get_session_factory
 
 FITTINGS_PATH = "/api/fittings"
 FITTING_DTO_FIELDS = {"id", "productId", "product", "status", "originalImageUrl", "resultImageUrl"}
-PRODUCT_DTO_FIELDS = {"id", "title", "price", "mallName", "purchaseUrl", "imageUrl", "style"}
+PRODUCT_DTO_FIELDS = {"id", "title", "price", "currency", "mallName", "purchaseUrl", "imageUrl", "style"}
 STALE_PENDING_AGE = timedelta(minutes=4)  # 슬라이스 상수 3분 초과
 FRESH_PENDING_AGE = timedelta(minutes=1)  # 슬라이스 상수 3분 이내
 
@@ -110,14 +110,15 @@ def assert_product_dto(product_body: dict, product) -> None:
     assert product_body == {
         "id": product.id,
         "title": product.title,
-        "price": product.price,
+        "price": float(product.price),
+        "currency": product.currency,
         "mallName": product.mall_name,
         "purchaseUrl": product.purchase_url,
         "imageUrl": product.image_url,
         "style": Style(product.style).value,
     }
     assert isinstance(product_body["id"], int)
-    assert isinstance(product_body["price"], int)
+    assert isinstance(product_body["price"], int | float) and not isinstance(product_body["price"], bool)
 
 
 def assert_fitting_dto(body: dict, user, product, storage, status: FittingStatus) -> None:

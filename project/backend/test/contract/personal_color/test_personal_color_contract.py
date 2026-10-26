@@ -1,7 +1,8 @@
 """personal_color 슬라이스 계약 테스트. 컨텍스트 카드(슬라이스: personal_color)의 백엔드 API 계약만 검증한다.
 
 POST /api/personal-color (multipart: selfie + bodyImage)
-- Response 200 PersonalColorDto { season, palette, selfieUrl, bodyImageUrl }
+- Response 200 PersonalColorDto { season, subtype, palette, avoidPalette, analysis, selfieUrl, bodyImageUrl }
+  analysis = { faceColors, warmth, depth, clarity, skinLightness, contrast } — YouCam 얼굴 색 5개 전부로 12유형 판정
 - Error: INVALID_IMAGE(400), VALIDATION_ERROR(422), FACE_NOT_DETECTED(422), EXTERNAL_API_FAILED(502), UNAUTHORIZED(401)
 """
 import re
@@ -9,13 +10,26 @@ import re
 import pytest
 from sqlalchemy import select
 
+from common.dto import FaceColorsDto
 from common.entity import Fitting, User
-from common.enums import FittingStatus, Season
+from common.enums import FittingStatus, Season, SeasonSubtype
 from common.error import ErrorCode
-from shared.color import SEASON_PALETTES
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES
 
 PERSONAL_COLOR_PATH = "/api/personal-color"
-PERSONAL_COLOR_DTO_FIELDS = {"season", "palette", "selfieUrl", "bodyImageUrl"}
+PERSONAL_COLOR_DTO_FIELDS = {"season", "subtype", "palette", "avoidPalette", "analysis", "selfieUrl", "bodyImageUrl"}
+ANALYSIS_FIELDS = {"faceColors", "warmth", "depth", "clarity", "skinLightness", "contrast"}
+FACE_COLORS_FIELDS = {"skin", "lip", "eye", "eyebrow", "hair", "eyeColorName", "hairColorName"}
+PREVIOUS_FACE_COLORS = {
+    "skin": "#C9A79A", "lip": "#A8354F", "eye": "#1E1714", "eyebrow": "#1A1514", "hair": "#141212",
+    "eyeColorName": None, "hairColorName": None,
+}
+
+
+def face_colors_of(skin: str, lip: str, eye: str, eyebrow: str, hair: str) -> FaceColorsDto:
+    return FaceColorsDto(
+        skin=skin, lip=lip, eye=eye, eyebrow=eyebrow, hair=hair, eye_color_name="Brown", hair_color_name="Black"
+    )
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
@@ -46,8 +60,10 @@ def build_files(sample_image_bytes, selfie_format: str = "JPEG", body_image_form
 
 
 def create_analyzed_user(create_user, database_session, storage, nickname: str = "analyzed") -> User:
-    """이전 분석 결과(season·두 키·저장소 파일)를 가진 사용자."""
-    user = create_user(nickname=nickname, season=Season.WINTER_COOL)
+    """이전 분석 결과(season·season_subtype·face_colors·두 키·저장소 파일)를 가진 사용자."""
+    user = create_user(
+        nickname=nickname, season=Season.WINTER_COOL, season_subtype=SeasonSubtype.TRUE, face_colors=PREVIOUS_FACE_COLORS
+    )
     user.selfie_key = f"selfies/{user.id}/previous-selfie.jpg"
     user.body_image_key = f"body-images/{user.id}/previous-body.jpg"
     database_session.commit()
@@ -64,21 +80,24 @@ def add_fitting(database_session, user: User, product_id: int) -> None:
 
 
 # ---- 정상 ----
+# 카드 "판정 규칙" 예시: (skin, lip, eye, eyebrow, hair) → (season, subtype, (warmth, depth, clarity))
 @pytest.mark.parametrize(
-    ("skin_color_hex", "expected_season"),
+    ("colors", "expected_season", "expected_subtype", "expected_axes"),
     [
-        ("#F2D3B1", Season.SPRING_WARM),
-        ("#F5D5C8", Season.SUMMER_COOL),
-        ("#B07B4F", Season.AUTUMN_WARM),
-        ("#8E6A63", Season.WINTER_COOL),
+        (("#F6DCC2", "#E8907A", "#8A6A4A", "#A08060", "#B08A60"), Season.SPRING_WARM, SeasonSubtype.LIGHT, (1.26, -1.34, -0.54)),
+        (("#F2D3B1", "#E07A5F", "#6B4A2B", "#7A5A3A", "#8B6A45"), Season.SPRING_WARM, SeasonSubtype.TRUE, (1.39, -0.83, 0.33)),
+        (("#D8C0B8", "#B88890", "#5A5048", "#6A605A", "#5A524C"), Season.SUMMER_COOL, SeasonSubtype.SOFT, (-1.17, -0.64, -2.03)),
+        (("#B07B4F", "#B5553A", "#3B2414", "#3A2618", "#2E1C10"), Season.AUTUMN_WARM, SeasonSubtype.DEEP, (0.68, 0.79, 2.06)),
+        (("#E3C0A6", "#C8646E", "#3A2A22", "#3B2E28", "#231C19"), Season.AUTUMN_WARM, SeasonSubtype.TRUE, (0.32, 0.13, -0.11)),
+        (("#C9A79A", "#A8354F", "#1E1714", "#1A1514", "#141212"), Season.WINTER_COOL, SeasonSubtype.TRUE, (-0.92, 0.57, -0.38)),
     ],
 )
-def test_analyze_returns_personal_color_dto_and_stores_season_and_keys(
+def test_analyze_returns_personal_color_dto_and_stores_judgment_and_keys(
     client, create_user, auth_headers, database_session, storage, youcam_client, sample_image_bytes,
-    skin_color_hex, expected_season,
+    colors, expected_season, expected_subtype, expected_axes,
 ):
     user = create_user(nickname="fresh")
-    youcam_client.skin_color_hex = skin_color_hex
+    youcam_client.face_colors = face_colors_of(*colors)
 
     response = client.post(PERSONAL_COLOR_PATH, files=build_files(sample_image_bytes), headers=auth_headers(user))
 
@@ -86,13 +105,26 @@ def test_analyze_returns_personal_color_dto_and_stores_season_and_keys(
     body = response.json()
     assert set(body) == PERSONAL_COLOR_DTO_FIELDS
     assert body["season"] == expected_season.value
-    assert body["palette"] == SEASON_PALETTES[expected_season]
-    assert all(isinstance(color, str) and HEX_COLOR_PATTERN.match(color) for color in body["palette"])
+    assert body["subtype"] == expected_subtype.value
+    assert body["palette"] == SUBTYPE_PALETTES[(expected_season, expected_subtype)]
+    assert body["avoidPalette"] == AVOID_PALETTES[expected_season]
+    assert all(HEX_COLOR_PATTERN.match(color) for color in body["palette"] + body["avoidPalette"])
     assert isinstance(body["selfieUrl"], str) and body["selfieUrl"]
     assert isinstance(body["bodyImageUrl"], str) and body["bodyImageUrl"]
 
+    analysis = body["analysis"]
+    assert set(analysis) == ANALYSIS_FIELDS
+    assert set(analysis["faceColors"]) == FACE_COLORS_FIELDS
+    assert [analysis["faceColors"][key] for key in ("skin", "lip", "eye", "eyebrow", "hair")] == list(colors)
+    assert (analysis["faceColors"]["eyeColorName"], analysis["faceColors"]["hairColorName"]) == ("Brown", "Black")
+    assert (analysis["warmth"], analysis["depth"], analysis["clarity"]) == expected_axes
+    for key in ("skinLightness", "contrast"):
+        assert isinstance(analysis[key], float | int) and round(analysis[key], 2) == analysis[key]
+
     stored_user = load_user(database_session, user.id)
     assert stored_user.season == expected_season
+    assert stored_user.season_subtype == expected_subtype
+    assert stored_user.face_colors == analysis["faceColors"]
     assert re.fullmatch(rf"selfies/{user.id}/[0-9a-f-]+\.jpg", stored_user.selfie_key)
     assert re.fullmatch(rf"body-images/{user.id}/[0-9a-f-]+\.jpg", stored_user.body_image_key)
     assert set(storage.objects) == {stored_user.selfie_key, stored_user.body_image_key}
@@ -109,7 +141,7 @@ def test_analyze_replaces_previous_photos_and_deletes_only_own_fittings(
     add_fitting(database_session, user, first_product.id)
     add_fitting(database_session, user, second_product.id)
     add_fitting(database_session, other_user, first_product.id)
-    youcam_client.skin_color_hex = "#F2D3B1"
+    youcam_client.face_colors = face_colors_of("#F2D3B1", "#E07A5F", "#6B4A2B", "#7A5A3A", "#8B6A45")
 
     response = client.post(
         PERSONAL_COLOR_PATH,
@@ -122,6 +154,8 @@ def test_analyze_replaces_previous_photos_and_deletes_only_own_fittings(
 
     stored_user = load_user(database_session, user.id)
     assert stored_user.season == Season.SPRING_WARM
+    assert stored_user.season_subtype == SeasonSubtype.TRUE
+    assert stored_user.face_colors["skin"] == "#F2D3B1"
     assert re.fullmatch(rf"selfies/{user.id}/[0-9a-f-]+\.png", stored_user.selfie_key)
     assert re.fullmatch(rf"body-images/{user.id}/[0-9a-f-]+\.png", stored_user.body_image_key)
     assert previous_keys.isdisjoint(storage.objects)
@@ -131,6 +165,7 @@ def test_analyze_replaces_previous_photos_and_deletes_only_own_fittings(
     # 본인 외 사용자는 변하지 않는다
     stored_other_user = load_user(database_session, other_user.id)
     assert stored_other_user.season == Season.WINTER_COOL
+    assert stored_other_user.face_colors == PREVIOUS_FACE_COLORS
     assert {stored_other_user.selfie_key, stored_other_user.body_image_key} == other_keys
     assert len(load_fittings(database_session, other_user.id)) == 1
 
@@ -149,6 +184,8 @@ def test_face_not_detected_keeps_user_fittings_and_storage_unchanged(
     assert_error(response, 422, ErrorCode.FACE_NOT_DETECTED)
     stored_user = load_user(database_session, user.id)
     assert stored_user.season == Season.WINTER_COOL
+    assert stored_user.season_subtype == SeasonSubtype.TRUE
+    assert stored_user.face_colors == PREVIOUS_FACE_COLORS
     assert {stored_user.selfie_key, stored_user.body_image_key} == previous_keys
     assert set(storage.objects) == previous_keys
     assert len(load_fittings(database_session, user.id)) == 1

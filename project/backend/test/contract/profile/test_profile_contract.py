@@ -12,14 +12,19 @@ import pytest
 from sqlalchemy import select
 
 from common.entity import Swipe, User
-from common.enums import AgeGroup, Gender, Season
+from common.dto import FaceColorsDto
+from common.enums import AgeGroup, Gender, Season, SeasonSubtype
 from common.error import ErrorCode
-from shared.color import SEASON_PALETTES
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, judge_personal_color
 from shared.config import get_settings
 
 PROFILE_PATH = "/api/users/me/profile"
 USER_DTO_FIELDS = {"id", "nickname", "ageGroup", "gender", "personalColor"}
-PERSONAL_COLOR_DTO_FIELDS = {"season", "palette", "selfieUrl", "bodyImageUrl"}
+PERSONAL_COLOR_DTO_FIELDS = {"season", "subtype", "palette", "avoidPalette", "analysis", "selfieUrl", "bodyImageUrl"}
+FACE_COLORS = {
+    "skin": "#E3C0A6", "lip": "#C8646E", "eye": "#3A2A22", "eyebrow": "#3B2E28", "hair": "#231C19",
+    "eyeColorName": "Brown", "hairColorName": "Black",
+}
 
 
 def assert_error(response, status_code: int, error_code: ErrorCode) -> None:
@@ -74,6 +79,8 @@ def test_update_profile_overwrites_only_age_group_and_gender_and_fills_personal_
         age_group=AgeGroup.TWENTIES,
         gender=Gender.FEMALE,
         season=Season.WINTER_COOL,
+        season_subtype=SeasonSubtype.BRIGHT,
+        face_colors=FACE_COLORS,
         selfie_key="selfies/1/face.jpg",
         body_image_key="body-images/1/body.jpg",
     )
@@ -93,7 +100,12 @@ def test_update_profile_overwrites_only_age_group_and_gender_and_fills_personal_
     personal_color = body["personalColor"]
     assert set(personal_color) == PERSONAL_COLOR_DTO_FIELDS
     assert personal_color["season"] == Season.WINTER_COOL.value
-    assert personal_color["palette"] == SEASON_PALETTES[Season.WINTER_COOL]
+    assert personal_color["subtype"] == SeasonSubtype.BRIGHT.value
+    assert personal_color["palette"] == SUBTYPE_PALETTES[(Season.WINTER_COOL, SeasonSubtype.BRIGHT)]
+    assert personal_color["avoidPalette"] == AVOID_PALETTES[Season.WINTER_COOL]
+    # analysis 는 저장된 face_colors 로 다시 계산한 판정 근거
+    expected_analysis = judge_personal_color(FaceColorsDto.model_validate(FACE_COLORS)).analysis
+    assert personal_color["analysis"] == expected_analysis.model_dump(by_alias=True)
     assert personal_color["selfieUrl"] == storage.get_url("selfies/1/face.jpg")
     assert personal_color["bodyImageUrl"] == storage.get_url("body-images/1/body.jpg")
 

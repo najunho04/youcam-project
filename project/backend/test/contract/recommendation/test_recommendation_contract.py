@@ -1,17 +1,18 @@
 """recommendation 슬라이스 계약 테스트. 컨텍스트 카드(슬라이스: recommendation)의 백엔드 API 계약만 검증한다.
 
 GET /api/recommendations (인증 필요)
-- Response 200 RecommendationResponse { styleTags, season, palette, isFallback, items: RecommendationItem[] }
+- Response 200 RecommendationResponse { styleTags, season, subtype, palette, isFallback, items: RecommendationItem[] }
 - RecommendationItem { product: ProductDto, score, tasteScore, colorScore, reasonTags }
-- ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }
-- 스와이프는 핀(코디 사진)에 한다. 후보: gender·age_group 일치 + TOP 상품 전체 (스와이프와 무관)
+- ProductDto { id, title, price, currency, mallName, purchaseUrl, imageUrl, style }
+- 스와이프는 핀(코디 사진)에 한다. 후보: source = EBAY, gender·age_group 일치 + TOP 상품 전체 (스와이프와 무관)
 - 핀평균 P·상품평균 Q 는 embedding_centroids 에 미리 적재 (없으면 0 벡터)
 - u = normalize(mean(L − P) + 1.5 × mean(C) − 0.5 × mean(D − P)), c_i = cos(u, e_i − Q)
 - tasteScore = Φ((c_i − μ) / σ) (σ = 0 이면 0.5)
-- colorScore = max(0, 1 − ΔE / 50), score = 0.7 × tasteScore + 0.3 × colorScore
-- 정렬 score 내림차순 → product.id 오름차순, 최대 5개
+- colorScore = max(0, 1 − ΔE / 50) × (피해야 할 팔레트와 ΔE < 15 이면 0.5), ΔE 는 12유형 팔레트 기준
+- score = 0.7 × tasteScore + 0.3 × colorScore
+- 정렬 score 내림차순 → product.id 오름차순, 최대 6개
 - 폴백(좋아요 < 3): tasteScore = 0, score = colorScore, isFallback = true
-- Error: PROFILE_REQUIRED(409), PERSONAL_COLOR_REQUIRED(409), UNAUTHORIZED(401)
+- Error: PROFILE_REQUIRED(409), PERSONAL_COLOR_REQUIRED(409, season 또는 season_subtype 없음), UNAUTHORIZED(401)
 
 기대값은 DB 에서 다시 읽은 embedding·color_lab 으로 카드의 식을 그대로 계산한다.
 """
@@ -24,15 +25,16 @@ import numpy as np
 import pytest
 
 from common.entity import EMBEDDING_DIMENSION, EmbeddingCentroid, Swipe, WardrobePhoto
-from common.enums import AgeGroup, EmbeddingDomain, Gender, Season, Style
+from common.enums import AgeGroup, EmbeddingDomain, Gender, ProductSource, Season, SeasonSubtype, Style
 from common.error import ErrorCode
-from shared.color import SEASON_PALETTES, delta_e, palette_lab
+from shared.color import SUBTYPE_PALETTES, avoid_palette_lab, delta_e, hex_to_lab, palette_lab
 from shared.config import get_settings
 
 RECOMMENDATIONS_PATH = "/api/recommendations"
-RECOMMENDATION_RESPONSE_FIELDS = {"styleTags", "season", "palette", "isFallback", "items"}
+RECOMMENDATION_RESPONSE_FIELDS = {"styleTags", "season", "subtype", "palette", "isFallback", "items"}
 RECOMMENDATION_ITEM_FIELDS = {"product", "score", "tasteScore", "colorScore", "reasonTags"}
-PRODUCT_DTO_FIELDS = {"id", "title", "price", "mallName", "purchaseUrl", "imageUrl", "style"}
+PRODUCT_DTO_FIELDS = {"id", "title", "price", "currency", "mallName", "purchaseUrl", "imageUrl", "style"}
+AVOID_DISTANCE_THRESHOLD = 15
 MAXIMUM_ITEM_COUNT = 6
 TOLERANCE = 1e-6
 
@@ -64,8 +66,10 @@ def shifted_lab(base: tuple[float, float, float], lightness_offset: float) -> li
     return [base[0] + lightness_offset, base[1], base[2]]
 
 
-def matching_user(create_user, season: Season, nickname: str = "recommendee"):
-    return create_user(nickname=nickname, age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE, season=season)
+def matching_user(create_user, season: Season, nickname: str = "recommendee", subtype: SeasonSubtype = SeasonSubtype.TRUE):
+    return create_user(
+        nickname=nickname, age_group=AgeGroup.TWENTIES, gender=Gender.FEMALE, season=season, season_subtype=subtype
+    )
 
 
 def matching_product(create_product, **columns):
@@ -130,9 +134,12 @@ def expected_taste_scores(taste_vector: np.ndarray, candidates, product_centroid
     }
 
 
-def expected_color_score(product, season: Season) -> float:
-    nearest_distance = min(delta_e(tuple(product.color_lab), palette_color) for palette_color in palette_lab(season))
-    return max(0.0, 1 - nearest_distance / 50)
+def expected_color_score(product, season: Season, subtype: SeasonSubtype) -> float:
+    product_color = tuple(product.color_lab)
+    nearest_distance = min(delta_e(product_color, palette_color) for palette_color in palette_lab(season, subtype))
+    nearest_avoid_distance = min(delta_e(product_color, avoid_color) for avoid_color in avoid_palette_lab(season))
+    penalty = 0.5 if nearest_avoid_distance < AVOID_DISTANCE_THRESHOLD else 1.0
+    return max(0.0, 1 - nearest_distance / 50) * penalty
 
 
 def expected_preferred_styles(liked_pins) -> list[Style]:
@@ -153,11 +160,14 @@ def expected_reason_tags(product, color_score: float, preferred_styles: list[Sty
     return tags
 
 
-def expected_items(candidates, season: Season, preferred_styles: list[Style], taste_scores: dict[int, float] | None):
+def expected_items(
+    candidates, season: Season, preferred_styles: list[Style], taste_scores: dict[int, float] | None,
+    subtype: SeasonSubtype = SeasonSubtype.TRUE,
+):
     """taste_scores 가 None 이면 폴백 (tasteScore = 0, score = colorScore)."""
     rows = []
     for product in candidates:
-        color_score = expected_color_score(product, season)
+        color_score = expected_color_score(product, season, subtype)
         if taste_scores is None:
             taste_score, score = 0.0, color_score
         else:
@@ -189,6 +199,7 @@ def assert_response_shape(body: dict) -> None:
     assert set(body) == RECOMMENDATION_RESPONSE_FIELDS
     assert isinstance(body["styleTags"], list) and all(isinstance(tag, str) for tag in body["styleTags"])
     assert body["season"] in {season.value for season in Season}
+    assert body["subtype"] in {subtype.value for subtype in SeasonSubtype}
     assert isinstance(body["palette"], list) and all(isinstance(color, str) for color in body["palette"])
     assert isinstance(body["isFallback"], bool)
     assert isinstance(body["items"], list)
@@ -204,7 +215,8 @@ def assert_response_shape(body: dict) -> None:
         assert set(product) == PRODUCT_DTO_FIELDS
         assert isinstance(product["id"], int)
         assert isinstance(product["title"], str)
-        assert isinstance(product["price"], int)
+        assert isinstance(product["price"], int | float) and not isinstance(product["price"], bool)
+        assert isinstance(product["currency"], str) and len(product["currency"]) == 3
         assert isinstance(product["mallName"], str)
         assert isinstance(product["purchaseUrl"], str)
         assert isinstance(product["imageUrl"], str)
@@ -224,7 +236,8 @@ def assert_items_match(actual_items: list[dict], expected_rows: list[dict], prod
         assert item["product"] == {
             "id": product.id,
             "title": product.title,
-            "price": product.price,
+            "price": float(product.price),
+            "currency": product.currency,
             "mallName": product.mall_name,
             "purchaseUrl": product.purchase_url,
             "imageUrl": product.image_url,
@@ -236,9 +249,9 @@ def assert_items_match(actual_items: list[dict], expected_rows: list[dict], prod
 def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
     client, create_user, create_product, create_pin, auth_headers, database_session
 ):
-    season = Season.AUTUMN_WARM
-    base_color = palette_lab(season)[0]
-    user = matching_user(create_user, season)
+    season, subtype = Season.AUTUMN_WARM, SeasonSubtype.DEEP
+    base_color = palette_lab(season, subtype)[0]
+    user = matching_user(create_user, season, subtype=subtype)
     other_user = matching_user(create_user, Season.WINTER_COOL, nickname="other")
 
     # 핀평균·상품평균 (축9 = 핀 사진 종류 성분, 축3 = 상품 사진 종류 성분)
@@ -272,6 +285,10 @@ def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
     excluded_products = [
         create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
         create_product(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
+        # 출처가 EBAY 가 아닌 상품 (한국어 UI용 네이버 상품)
+        matching_product(
+            create_product, source=ProductSource.NAVER, currency="KRW", embedding=axis_vector((0, 1.0)), color_lab=list(base_color)
+        ),
     ]
     # 다른 사용자의 스와이프·옷장은 이 사용자의 취향에 영향 없음
     other_pin = matching_pin(create_pin, style=Style.FORMAL, embedding=axis_vector((2, 1.0)))
@@ -281,7 +298,7 @@ def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
     preferred_styles = expected_preferred_styles(liked_pins)
     taste_vector = expected_taste_vector(liked_pins, wardrobe_photos, disliked_pins, stored_vector(pin_centroid))
     taste_scores = expected_taste_scores(taste_vector, candidates, stored_vector(product_centroid))
-    expected_rows = expected_items(candidates, season, preferred_styles, taste_scores)
+    expected_rows = expected_items(candidates, season, preferred_styles, taste_scores, subtype)
 
     response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
 
@@ -290,7 +307,8 @@ def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
     assert_response_shape(body)
     assert body["styleTags"] == ["러블리", "미니멀", "가을 웜톤"]  # 빈도순, 동률은 Style 정의 순서
     assert body["season"] == season.value
-    assert body["palette"] == SEASON_PALETTES[season]
+    assert body["subtype"] == subtype.value
+    assert body["palette"] == SUBTYPE_PALETTES[(season, subtype)]
     assert body["isFallback"] is False
     assert len(body["items"]) == MAXIMUM_ITEM_COUNT
     assert not {item["product"]["id"] for item in body["items"]} & {product.id for product in excluded_products}
@@ -304,7 +322,7 @@ def test_recommendations_without_centroids_use_uncentered_embeddings(
     client, create_user, create_product, create_pin, auth_headers, database_session
 ):
     season = Season.AUTUMN_WARM
-    base_color = palette_lab(season)[0]
+    base_color = palette_lab(season, SeasonSubtype.TRUE)[0]
     user = matching_user(create_user, season)
     liked_pins = [matching_pin(create_pin, style=Style.CASUAL, embedding=axis_vector((0, 1.0), (4, 0.5))) for _ in range(3)]
     for pin in liked_pins:
@@ -347,7 +365,7 @@ def test_recommendations_give_neutral_taste_score_when_candidate_similarities_ar
     client, create_user, create_product, create_pin, auth_headers, database_session
 ):
     season = Season.SPRING_WARM
-    base_color = palette_lab(season)[2]
+    base_color = palette_lab(season, SeasonSubtype.TRUE)[2]
     user = matching_user(create_user, season)
     liked_pins = [matching_pin(create_pin, style=Style.CASUAL, embedding=axis_vector((0, 1.0))) for _ in range(3)]
     for pin in liked_pins:
@@ -370,13 +388,41 @@ def test_recommendations_give_neutral_taste_score_when_candidate_similarities_ar
     assert_items_match(body["items"], expected_rows, {product.id: product for product in candidates})
 
 
+def test_recommendations_halve_color_score_for_colors_close_to_avoid_palette(
+    client, create_user, create_product, auth_headers
+):
+    # 폴백(스와이프 없음) → score = colorScore 라 감점이 순위에 그대로 드러난다
+    season, subtype = Season.AUTUMN_WARM, SeasonSubtype.TRUE
+    user = matching_user(create_user, season, subtype=subtype)
+    palette_color_product = matching_product(create_product, style=Style.CASUAL, color_lab=list(palette_lab(season, subtype)[0]))
+    avoid_color_product = matching_product(
+        create_product, style=Style.CASUAL, color_lab=list(hex_to_lab("#E0218A"))  # 가을 피해야 할 색 (푸시아)
+    )
+    candidates = [palette_color_product, avoid_color_product]
+    expected_rows = expected_items(candidates, season, [], taste_scores=None, subtype=subtype)
+
+    response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert_response_shape(body)
+    items_by_product_id = {item["product"]["id"]: item for item in body["items"]}
+    avoid_item = items_by_product_id[avoid_color_product.id]
+    unpenalized_score = max(
+        0.0, 1 - min(delta_e(tuple(avoid_color_product.color_lab), color) for color in palette_lab(season, subtype)) / 50
+    )
+    assert avoid_item["colorScore"] == pytest.approx(unpenalized_score * 0.5, abs=TOLERANCE)
+    assert items_by_product_id[palette_color_product.id]["colorScore"] == pytest.approx(1.0, abs=TOLERANCE)
+    assert_items_match(body["items"], expected_rows, {product.id: product for product in candidates})
+
+
 # ---- 정상: 폴백 ----
 def test_recommendations_fall_back_to_color_score_when_likes_are_fewer_than_three(
     client, create_user, create_product, create_pin, auth_headers, database_session
 ):
-    season = Season.SUMMER_COOL
-    palette_colors = palette_lab(season)
-    user = matching_user(create_user, season)
+    season, subtype = Season.SUMMER_COOL, SeasonSubtype.SOFT
+    palette_colors = palette_lab(season, subtype)
+    user = matching_user(create_user, season, subtype=subtype)
     # 핀 좋아요 2개 (< 3) + 싫어요·옷장 사진이 있어도 폴백
     liked_pins = [matching_pin(create_pin, style=Style.STREET, embedding=axis_vector((0, 1.0))) for _ in range(2)]
     disliked_pin = matching_pin(create_pin, style=Style.MINIMAL, embedding=axis_vector((1, 1.0)))
@@ -394,7 +440,7 @@ def test_recommendations_fall_back_to_color_score_when_likes_are_fewer_than_thre
         matching_product(create_product, style=Style.FORMAL, embedding=axis_vector((5, 1.0)), color_lab=shifted_lab(palette_colors[7], -12)),
         matching_product(create_product, style=Style.STREET, embedding=axis_vector((6, 1.0)), color_lab=[100.0, 100.0, 100.0]),
     ]
-    expected_rows = expected_items(candidates, season, [Style.STREET], taste_scores=None)
+    expected_rows = expected_items(candidates, season, [Style.STREET], taste_scores=None, subtype=subtype)
 
     response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
 
@@ -403,7 +449,8 @@ def test_recommendations_fall_back_to_color_score_when_likes_are_fewer_than_thre
     assert_response_shape(body)
     assert body["styleTags"] == ["스트릿", "여름 쿨톤"]
     assert body["season"] == season.value
-    assert body["palette"] == SEASON_PALETTES[season]
+    assert body["subtype"] == subtype.value
+    assert body["palette"] == SUBTYPE_PALETTES[(season, subtype)]
     assert body["isFallback"] is True
     assert len(body["items"]) == MAXIMUM_ITEM_COUNT
     for item in body["items"]:
@@ -428,7 +475,8 @@ def test_recommendations_without_swipes_or_candidates_return_season_tag_and_empt
     assert body == {
         "styleTags": ["겨울 쿨톤"],
         "season": season.value,
-        "palette": SEASON_PALETTES[season],
+        "subtype": SeasonSubtype.TRUE.value,
+        "palette": SUBTYPE_PALETTES[(season, SeasonSubtype.TRUE)],
         "isFallback": True,
         "items": [],
     }
@@ -438,9 +486,10 @@ def test_recommendations_without_swipes_or_candidates_return_season_tag_and_empt
 @pytest.mark.parametrize(
     ("user_columns", "error_code"),
     [
-        ({"age_group": None, "gender": Gender.FEMALE, "season": Season.AUTUMN_WARM}, ErrorCode.PROFILE_REQUIRED),
-        ({"age_group": AgeGroup.TWENTIES, "gender": None, "season": Season.AUTUMN_WARM}, ErrorCode.PROFILE_REQUIRED),
-        ({"age_group": AgeGroup.TWENTIES, "gender": Gender.FEMALE, "season": None}, ErrorCode.PERSONAL_COLOR_REQUIRED),
+        ({"age_group": None, "gender": Gender.FEMALE, "season": Season.AUTUMN_WARM, "season_subtype": SeasonSubtype.TRUE}, ErrorCode.PROFILE_REQUIRED),
+        ({"age_group": AgeGroup.TWENTIES, "gender": None, "season": Season.AUTUMN_WARM, "season_subtype": SeasonSubtype.TRUE}, ErrorCode.PROFILE_REQUIRED),
+        ({"age_group": AgeGroup.TWENTIES, "gender": Gender.FEMALE, "season": None, "season_subtype": None}, ErrorCode.PERSONAL_COLOR_REQUIRED),
+        ({"age_group": AgeGroup.TWENTIES, "gender": Gender.FEMALE, "season": Season.AUTUMN_WARM, "season_subtype": None}, ErrorCode.PERSONAL_COLOR_REQUIRED),
     ],
 )
 def test_recommendations_reject_missing_profile_or_personal_color(
