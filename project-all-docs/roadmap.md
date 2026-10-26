@@ -21,7 +21,7 @@
 | A. 준비 | 10/26 | eBay 개발자 계정 · Production 키 활성화 신청 (계정 삭제 알림 구독 또는 면제). 문서·카드 갱신 | 키 발급, 카드 승인 |
 | B. 공용 변경 | 10/26 ~ 10/27 | `shared.youcam` 얼굴 색 5개 전부 반환, `shared.color` 판정 함수·12유형 팔레트·피해야 할 팔레트, `common` DTO·enum·entity(users·products) 변경, conftest 갱신 | 승인 커밋 (`approvals.md` 기록) |
 | C. personal_color | 10/27 ~ 10/28 | 12유형 판정 + 결과 화면 하단 판정 근거. auth·profile 의 `personalColor` 동기화 | 계약 테스트 통과, 근거 화면 확인 |
-| D. product_ingest | 10/28 ~ 10/29 | eBay 수집, 착용컷 제외, 배경 제거 + K-means 대표색, 상품 평균 갱신 | 상품 1,000개 이상 적재 |
+| D. product_ingest | 10/28 ~ 10/29 | eBay 수집, 배경 제거 + K-means 대표색, 상품 평균 갱신 | 상품 1,000개 이상 적재 |
 | E. recommendation · fitting | 10/29 ~ 10/30 | 12유형 팔레트 + 피해야 할 색 감점, USD 가격 표시 | 추천 6개, 피팅 1회 성공 |
 | F. 제출 준비 | 10/31 ~ 11/02 | 배포, 영어 README, 데모 영상(1~3분), 스크린샷, 심사위원용 테스트 계정, 레포 공개·LICENSE | Devpost 제출 완료 |
 | Z. 최후순위 | 여유 있을 때 | 한국어 UI에서 네이버 쇼핑 상품 노출 (`products.source = NAVER`, 추천 후보를 화면 언어로 거름) | - |
