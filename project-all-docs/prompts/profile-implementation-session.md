@@ -1,14 +1,15 @@
-아래 슬라이스를 구현해줘.
+아래 슬라이스를 재작업해줘.
 
+- 이번 작업은 **재작업**이다. 슬라이스 코드는 이미 있고, 공용 레이어와 계약 테스트가 새 카드 기준으로 바뀌었다 (커밋 84416b5, 958ef9e). 기존 코드를 아래 카드에 맞게 고칠 것.
 - backend/test/contract/profile/ 의 테스트를 통과시키되, 그 파일은 수정 금지.
-- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`)는 읽기 전용. 변경 필요하면 멈추고 보고.
-- 세부 단위 테스트는 TDD로 먼저 작성. 위치: backend/test/unit/profile/, front/test/unit/profile/
-- 레퍼런스 구조: backend/src/feature/auth/, front/src/feature/auth/ — 폴더 구조·파일 이름·역할을 그대로 따를 것.
-  - 다른 슬라이스(auth 포함)의 코드를 import 하지 말 것. UserDto 구성처럼 auth 와 같은 로직이 필요하면 이 슬라이스 안에 따로 둘 것. 공용으로 옮겨야 한다고 판단되면 멈추고 보고.
-  - `_reference-slice/` 폴더는 건드리지 말 것.
-- 조립 지점에는 이 슬라이스 줄만 추가: backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx 슬라이스 라우트 구역 (`ROUTES.profile`, RequireAuth 로 감쌈).
+- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`, front `common/`·`shared/`)는 읽기 전용. 변경이 필요하면 멈추고 보고.
+- `shared.color.SEASON_PALETTES` 는 개편 전 임시 별칭이다. 새 코드에서 쓰지 말 것 (`SUBTYPE_PALETTES`·`AVOID_PALETTES` 사용).
+- 기존 단위 테스트(backend/test/unit/profile/, front/test/unit/profile/)가 깨져 있다. 새 카드 기준으로 TDD 로 고칠 것 (테스트를 먼저 고치고 구현). 다른 슬라이스의 단위 테스트는 건드리지 말 것.
+- 다른 슬라이스의 코드를 import 하지 말 것. 공용으로 옮겨야 한다고 판단되면 멈추고 보고.
+- 조립 지점(backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx)은 이미 연결돼 있다. 바꾸지 말 것.
+- 바뀌는 것은 응답 `UserDto.personalColor` 형태뿐이다. auth 카드의 규칙과 같다 (auth 코드를 import 하지 말고 이 슬라이스 안에 따로 둘 것).
 - users 의 age_group, gender 외 컬럼은 쓰지 말 것.
-- 완료 기준: `SLICE=profile make test-slice` 통과 (계약 + 단위), `make lint` 통과. 커밋은 하지 말고 결과를 보고할 것.
+- 완료 기준: `SLICE=profile make test-slice` 통과 (계약 + 단위), `make lint` 통과, 프론트 `npx tsc -b` 오류 없음. 커밋은 하지 말고 결과를 보고할 것.
 
 [컨텍스트 카드]
 
@@ -33,7 +34,7 @@
 - PUT /api/users/me/profile (인증 필요)
   - Request `ProfileUpdateRequest { ageGroup: AgeGroup, gender: Gender }` — 둘 다 필수
   - Response 200 `UserDto { id, nickname, ageGroup, gender, personalColor: PersonalColorDto|null }`
-    - personalColor 는 users.season, selfie_key, body_image_key 가 **모두** 있을 때만 채움: `{ season, palette: SEASON_PALETTES[season], selfieUrl: get_url(selfie_key), bodyImageUrl: get_url(body_image_key) }` (get_url = `get_storage().get_url`)
+    - personalColor 는 auth 카드의 `PersonalColorDto` 규칙과 같다 (users.season, season_subtype, face_colors, selfie_key, body_image_key 가 **모두** 있을 때만 채움)
   - Error: UNAUTHORIZED(401), VALIDATION_ERROR(422) — enum 밖 값·누락
 - enum: AgeGroup = LATE_TEENS | TWENTIES | THIRTIES | FORTIES_PLUS, Gender = FEMALE | MALE
 

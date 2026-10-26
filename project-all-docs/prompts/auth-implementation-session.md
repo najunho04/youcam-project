@@ -1,14 +1,15 @@
-아래 슬라이스를 구현해줘.
+아래 슬라이스를 재작업해줘.
 
+- 이번 작업은 **재작업**이다. 슬라이스 코드는 이미 있고, 공용 레이어와 계약 테스트가 새 카드 기준으로 바뀌었다 (커밋 84416b5, 958ef9e). 기존 코드를 아래 카드에 맞게 고칠 것.
 - backend/test/contract/auth/ 의 테스트를 통과시키되, 그 파일은 수정 금지.
-- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`)는 읽기 전용. 변경 필요하면 멈추고 보고.
-- 세부 단위 테스트는 TDD로 먼저 작성. 위치: backend/test/unit/auth/, front/test/unit/auth/
-- **이 슬라이스가 첫 레퍼런스 슬라이스다.** 따라할 기존 슬라이스가 없다. 이후 모든 슬라이스가 이 폴더 구조를 그대로 따라 하게 된다.
-  - 코드를 쓰기 전에 백엔드·프론트 폴더 구조(파일 이름과 역할)를 먼저 제안하고 멈춰서 승인을 기다릴 것.
-  - 단순하고 반복 가능한 구조로 할 것. 이 슬라이스에만 필요한 추상화는 넣지 말 것.
-  - `_reference-slice/` 폴더는 건드리지 말 것 (정리는 사람이 한다).
-- 조립 지점에는 이 슬라이스 줄만 추가: backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx 슬라이스 라우트 구역.
-- 완료 기준: `SLICE=auth make test-slice` 통과 (계약 + 단위), `make lint` 통과. 커밋은 하지 말고 결과를 보고할 것.
+- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`, front `common/`·`shared/`)는 읽기 전용. 변경이 필요하면 멈추고 보고.
+- `shared.color.SEASON_PALETTES` 는 개편 전 임시 별칭이다. 새 코드에서 쓰지 말 것 (`SUBTYPE_PALETTES`·`AVOID_PALETTES` 사용).
+- 기존 단위 테스트(backend/test/unit/auth/, front/test/unit/auth/)가 깨져 있다. 새 카드 기준으로 TDD 로 고칠 것 (테스트를 먼저 고치고 구현). 다른 슬라이스의 단위 테스트는 건드리지 말 것.
+- 다른 슬라이스의 코드를 import 하지 말 것. 공용으로 옮겨야 한다고 판단되면 멈추고 보고.
+- 조립 지점(backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx)은 이미 연결돼 있다. 바꾸지 말 것.
+- 바뀌는 것은 `/api/users/me` 의 `personalColor` 형태뿐이다. 판정 근거는 `shared.color.judge_personal_color(FaceColorsDto.model_validate(users.face_colors)).analysis` 로 다시 만든다. season·subtype 은 저장값을 쓴다.
+- 가입·로그인 동작은 바꾸지 말 것. 프론트 변경은 단위 테스트의 PersonalColorDto 목업 갱신 정도다.
+- 완료 기준: `SLICE=auth make test-slice` 통과 (계약 + 단위), `make lint` 통과, 프론트 `npx tsc -b` 오류 없음. 커밋은 하지 말고 결과를 보고할 것.
 
 [컨텍스트 카드]
 
@@ -34,18 +35,18 @@
 ## 계약
 - POST /api/auth/signup
   - Request `AuthRequest { nickname: string(2~20), password: string(4~72) }`
-  - Response 200 `AuthResponse { accessToken: string, user: UserDto }`
+  - Response 200 `AuthResponse { accessToken: string, user: UserDto }` — 가입 직후 user 의 ageGroup·gender·personalColor 는 null
   - Error: NICKNAME_TAKEN(409) — 같은 닉네임 존재 / VALIDATION_ERROR(422) — 길이 위반
 - POST /api/auth/login
   - Request `AuthRequest`
   - Response 200 `AuthResponse`
-  - Error: INVALID_CREDENTIALS(401) — 닉네임 없음 또는 비밀번호 불일치 (둘을 구분하지 않음)
+  - Error: INVALID_CREDENTIALS(401) — 닉네임 없음 또는 비밀번호 불일치 (둘을 구분하지 않음) / VALIDATION_ERROR(422) — 길이 위반 (signup 과 동일)
 - GET /api/users/me (인증 필요)
   - Response 200 `UserDto`
-  - Error: UNAUTHORIZED(401) — 토큰 없음/만료/위조
+  - Error: UNAUTHORIZED(401) — 토큰 없음/만료/위조, 또는 토큰은 유효하나 해당 사용자가 DB 에 없음
 - DTO
   - `UserDto { id: number, nickname: string, ageGroup: AgeGroup|null, gender: Gender|null, personalColor: PersonalColorDto|null }`
-  - `PersonalColorDto { season: Season, palette: string[] (hex), selfieUrl: string, bodyImageUrl: string }` — users.season, selfie_key, body_image_key 가 **모두** 있을 때만 채움. palette 는 `shared.color.SEASON_PALETTES[season]`, selfieUrl 은 `get_storage().get_url(selfie_key)`, bodyImageUrl 은 `get_storage().get_url(body_image_key)`
+  - `PersonalColorDto` (personal_color 카드와 같은 형태: season, subtype, palette, avoidPalette, analysis, selfieUrl, bodyImageUrl) — users.season, season_subtype, face_colors, selfie_key, body_image_key 가 **모두** 있을 때만 채움. season·subtype 은 저장값, analysis 는 `shared.color.judge_personal_color(users.face_colors).analysis` 로 다시 만든다 (같은 입력이면 같은 결과). palette 는 `shared.color.SUBTYPE_PALETTES[(season, subtype)]`, avoidPalette 는 `AVOID_PALETTES[season]`, selfieUrl 은 `get_storage().get_url(selfie_key)`, bodyImageUrl 은 `get_storage().get_url(body_image_key)`
 - 에러 응답 형태: `{ "error": { "code": ErrorCode, "message": string } }` (shared/exception 이 처리. 슬라이스는 `AppError(ErrorCode.X)` 만 던짐)
 
 ## 상하류
@@ -68,6 +69,7 @@
 
 ## 불변조건
 - 닉네임은 유일하다 (DB UNIQUE 위반도 NICKNAME_TAKEN 으로 변환)
+- 닉네임은 trim 하지 않고 대소문자를 구분한다 ("Abc" 와 "abc" 는 다른 닉네임)
 - 비밀번호 원문은 저장·로그·응답 어디에도 남지 않는다
 - 응답에 password_hash 가 포함되지 않는다
 

@@ -26,6 +26,16 @@
 | F. 제출 준비 | 10/31 ~ 11/02 | 배포, 영어 README, 데모 영상(1~3분), 스크린샷, 심사위원용 테스트 계정, 레포 공개·LICENSE | Devpost 제출 완료 |
 | Z. 최후순위 | 여유 있을 때 | 한국어 UI에서 네이버 쇼핑 상품 노출 (`products.source = NAVER`, 추천 후보를 화면 언어로 거름) | - |
 
+## DB 재생성 절차 (스키마 변경 시, Alembic 없음)
+
+핀은 레포에 적재 스크립트가 없어 **DB에만 있다**. 통째로 지우지 말고 아래 순서로 한다. 로컬 Docker DB는 10/26 완료 (백업: `project/backend/var/db-backup-20261026/`). **Neon(운영)은 새 코드 배포할 때 같은 절차로 한다.**
+
+1. 전체 백업: `pg_dump -Fc` + 살릴 테이블 데이터만 `pg_dump --data-only --table=…` (users, pins, swipes, wardrobe_photos) + `embedding_centroids` 의 PIN 행
+2. `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+3. 새 코드로 `initialize_database()` (앱 기동 또는 직접 호출) → 새 스키마로 테이블 생성
+4. users → pins → swipes → wardrobe_photos 순서로 데이터 복원, PIN 평균 복원
+5. 새 판정 근거가 없는 사용자는 `season` 을 NULL 로 (퍼스널컬러 진단 다시 하게). 상품·피팅은 버리고 `make ingest` 로 eBay 상품 적재 → PRODUCT 평균은 배치가 계산
+
 ## 미리 해둘 것 (단계 0 전/중)
 
 - [ ] YouCam API 키 · 크레딧 확인, 피부톤 분석 / 의류 피팅 응답 **샘플 저장** (개발 중 목업용)

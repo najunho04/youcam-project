@@ -1,17 +1,15 @@
-아래 슬라이스를 구현해줘.
+아래 슬라이스를 재작업해줘.
 
+- 이번 작업은 **재작업**이다. 슬라이스 코드는 이미 있고, 공용 레이어와 계약 테스트가 새 카드 기준으로 바뀌었다 (커밋 84416b5, 958ef9e). 기존 코드를 아래 카드에 맞게 고칠 것.
 - backend/test/contract/fitting/ 의 테스트를 통과시키되, 그 파일은 수정 금지.
-- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`)는 읽기 전용. 변경 필요하면 멈추고 보고.
-- 세부 단위 테스트는 TDD로 먼저 작성. 위치: backend/test/unit/fitting/, front/test/unit/fitting/
-  - 프론트 폴링(2초 간격, 150초 상한, 화면 이탈 시 중단)은 가짜 타이머(vi.useFakeTimers)로 테스트할 것.
-- 레퍼런스 구조: backend/src/feature/auth/, front/src/feature/auth/ — 폴더 구조·파일 이름·역할을 그대로 따를 것.
-  - 다른 슬라이스의 코드를 import 하지 말 것. ProductDto 구성처럼 recommendation 과 같은 로직이 필요하면 이 슬라이스 안에 따로 둘 것. 공용으로 옮겨야 한다고 판단되면 멈추고 보고.
-  - `_reference-slice/` 폴더는 건드리지 말 것.
-- 조립 지점에는 이 슬라이스 줄만 추가: backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx 슬라이스 라우트 구역 (`ROUTES.fittingPattern`, RequireAuth 로 감쌈).
-- fittings 외 테이블은 쓰지 말 것. users·products 는 읽기만.
-- 백그라운드 작업은 요청 세션을 쓰지 말고 `shared.database.session_scope()` 로 새 세션을 열 것. 작업이 끝났을 때 행이 없거나(사진 재업로드로 삭제) 다른 작업으로 다시 시작됐으면 아무것도 쓰지 말 것.
-- YouCam 은 `get_youcam_client()` 로만 접근할 것. 실제 YouCam 을 호출하지 말 것 (크레딧). 시작한 YouCam 작업은 끝까지 기다릴 것 (폴링하지 않아도 과금됨).
-- 완료 기준: `SLICE=fitting make test-slice` 통과 (계약 + 단위), `make lint` 통과. 커밋은 하지 말고 결과를 보고할 것.
+- 공용 레이어(`common/`, `shared/`, `backend/test/conftest.py`, front `common/`·`shared/`)는 읽기 전용. 변경이 필요하면 멈추고 보고.
+- `shared.color.SEASON_PALETTES` 는 개편 전 임시 별칭이다. 새 코드에서 쓰지 말 것 (`SUBTYPE_PALETTES`·`AVOID_PALETTES` 사용).
+- 기존 단위 테스트(backend/test/unit/fitting/, front/test/unit/fitting/)가 깨져 있다. 새 카드 기준으로 TDD 로 고칠 것 (테스트를 먼저 고치고 구현). 다른 슬라이스의 단위 테스트는 건드리지 말 것.
+- 다른 슬라이스의 코드를 import 하지 말 것. 공용으로 옮겨야 한다고 판단되면 멈추고 보고.
+- 조립 지점(backend/src/main.py `FEATURE_ROUTERS`, front/src/app/App.tsx)은 이미 연결돼 있다. 바꾸지 말 것.
+- 계약 테스트는 공용 레이어 변경만으로 이미 통과한다. 남은 일은 프론트 가격 표시(`shared.i18n.formatMoney(price, currency, language)`)와 깨진 프론트 단위 테스트(ProductDto 목업에 currency) 갱신이다.
+- 피팅 흐름(비동기·폴링·캐시)은 바꾸지 말 것. 실제 YouCam 을 호출하지 말 것.
+- 완료 기준: `SLICE=fitting make test-slice` 통과 (계약 + 단위), `make lint` 통과, 프론트 `npx tsc -b` 오류 없음. 커밋은 하지 말고 결과를 보고할 것.
 
 [컨텍스트 카드]
 
@@ -40,7 +38,7 @@
 - POST /api/fittings (인증 필요)
   - Request `FittingCreateRequest { productId: number }`
   - Response **202** `FittingDto { id: number, productId: number, product: ProductDto, status: FittingStatus, originalImageUrl: string, resultImageUrl: string|null }`
-    - `ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }` (recommendation 과 같은 공용 DTO)
+    - `ProductDto { id, title, price, currency, mallName, purchaseUrl, imageUrl, style }` (recommendation 과 같은 공용 DTO)
     - originalImageUrl = get_storage().get_url(users.body_image_key), resultImageUrl = DONE 일 때 get_url(result_key), 아니면 null
   - 동작:
     - (user, product) 행이 DONE → 그대로 반환 (YouCam 호출 없음, 캐시)
