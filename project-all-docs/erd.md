@@ -130,6 +130,7 @@ erDiagram
 | created_at | timestamptz | NOT NULL DEFAULT now() |
 
 - 인덱스: `(gender, age_group)`. 개발 전 1회 적재(Playwright 크롤링), 서버는 읽기만.
+- **적재 스크립트가 레포에 없다.** 핀 데이터는 DB 와 백업 dump(`project/backend/var/db-backup-20261026/pins.sql`)에만 있다. DB 를 다시 만들 때는 반드시 복원한다 (roadmap.md "DB 재생성 절차").
 
 ### embedding_centroids — 출처별 임베딩 평균
 | 컬럼 | 타입 | 제약 |
@@ -176,4 +177,4 @@ erDiagram
 - 취향 벡터 / 추천 결과: 요청 시 swipes(핀) + wardrobe_photos + embedding_centroids로 계산 (스와이프 20개 평균이라 수 ms)
 - 시즌별 팔레트, 스타일 태그 텍스트 임베딩: 코드 상수 / 서버 기동 시 1회 계산
 - enum은 DB enum 타입 대신 `varchar` + 애플리케이션 enum (마이그레이션 단순화)
-- 스키마 관리: 해커톤이라 Alembic 없이 `create_all` + 시드. 스키마 변경 시 DB 볼륨 재생성
+- 스키마 관리: 해커톤이라 Alembic 없이 `create_all` + 시드. `create_all` 은 이미 있는 테이블에 컬럼을 추가하지 않으므로 스키마가 바뀌면 DB 를 다시 만든다. 볼륨을 통째로 지우면 핀이 사라지므로 roadmap.md 의 "DB 재생성 절차"(백업 → 재생성 → 핀·사용자 복원)를 따른다

@@ -26,6 +26,27 @@
 | F. 제출 준비 | 10/31 ~ 11/02 | 배포, 영어 README, 데모 영상(1~3분), 스크린샷, 심사위원용 테스트 계정, 레포 공개·LICENSE | Devpost 제출 완료 |
 | Z. 최후순위 | 여유 있을 때 | 한국어 UI에서 네이버 쇼핑 상품 노출 (`products.source = NAVER`, 추천 후보를 화면 언어로 거름) | - |
 
+### 진행 상황 (10/26 기준)
+
+| 항목 | 상태 | 커밋 / 위치 |
+|---|---|---|
+| 문서·카드 갱신 (12유형, eBay, 착용컷 미제외, K-means 적재 시 1회) | 완료 | 9e39764, 406fc63 |
+| B. 공용 레이어 변경 | 완료. 공용 테스트 통과 | 84416b5 |
+| 계약 테스트 재작성 (personal_color·product_ingest·recommendation·auth·profile·fitting) | 완료·동결. fitting 만 통과, 나머지는 슬라이스 재작업 전이라 실패 | 958ef9e |
+| 구현 세션 프롬프트 6개 | 완료 | `prompts/{슬라이스}-implementation-session.md` (c072d25) |
+| 로컬 Docker DB 재생성 (핀·사용자 복원) | 완료 | 아래 "DB 재생성 절차" |
+| eBay Production 키 → `.env` 의 `EBAY_CLIENT_ID`·`EBAY_CLIENT_SECRET` | 사람 (10/27까지) | - |
+| C~E. 슬라이스 재작업 | 사람이 구현 세션으로 진행. 순서: personal_color · product_ingest (병렬) → recommendation → auth · profile · fitting | - |
+| `shared.color.SEASON_PALETTES` 임시 별칭 삭제 | 슬라이스 재작업 끝난 뒤 (관리자 세션) | - |
+| Neon(운영) DB 재생성 | 새 코드 배포할 때 (F 단계) | 아래 절차 |
+
+### DB 환경
+
+- **개발**: `project/.env` 의 `DATABASE_URL` = 로컬 Docker (`localhost:5432/colorfit`). 10/26 에 Neon → 로컬로 바꿨다 (Neon 주소는 주석으로 남김)
+- **운영**: Neon. 배포된 예전 코드가 쓰고 있으므로 새 코드 배포 전에는 손대지 않는다
+- **테스트**: 로컬 Docker 의 `colorfit_test`. 스키마가 바뀌면 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` 후 테스트를 돌리면 다시 만들어진다
+- DB 컨테이너가 포트 없이 떠 있으면 테스트가 연결 거부로 실패한다 → `docker compose up -d --force-recreate db` (볼륨 유지)
+
 ## DB 재생성 절차 (스키마 변경 시, Alembic 없음)
 
 핀은 레포에 적재 스크립트가 없어 **DB에만 있다**. 통째로 지우지 말고 아래 순서로 한다. 로컬 Docker DB는 10/26 완료 (백업: `project/backend/var/db-backup-20261026/`). **Neon(운영)은 새 코드 배포할 때 같은 절차로 한다.**
@@ -36,10 +57,14 @@
 4. users → pins → swipes → wardrobe_photos 순서로 데이터 복원, PIN 평균 복원
 5. 새 판정 근거가 없는 사용자는 `season` 을 NULL 로 (퍼스널컬러 진단 다시 하게). 상품·피팅은 버리고 `make ingest` 로 eBay 상품 적재 → PRODUCT 평균은 배치가 계산
 
+로컬 결과 (10/26): users 23 · pins 1,567 · swipes 210 · wardrobe_photos 1 · PIN 평균 1 복원, products·fittings 0, season 비운 사용자 18명. 백업 폴더에는 바꾸기 전 `.env`(`env.before`, 비밀값 포함 — git 제외 경로)도 있다.
+
 ## 미리 해둘 것 (단계 0 전/중)
 
 - [ ] YouCam API 키 · 크레딧 확인, 피부톤 분석 / 의류 피팅 응답 **샘플 저장** (개발 중 목업용)
 - [ ] 네이버 쇼핑 검색 API 키 발급
+- [ ] eBay 개발자 계정 · Production 키 (계정 삭제 알림 구독 또는 면제) → `.env` 에 `EBAY_CLIENT_ID`·`EBAY_CLIENT_SECRET`
+- [ ] 핀 적재 스크립트가 레포에 없다. 핀은 DB(와 백업 dump)에만 있으므로 DB 를 지울 때 반드시 백업·복원
 - [x] S3 비공개 버킷 `youcamapi-hackathon-1013` (ap-northeast-2). 로컬은 `~/.aws/credentials`, `.env`에 키 안 넣음
 - [ ] EC2 인스턴스 롤: 위 버킷 `s3:PutObject/GetObject/DeleteObject`
 - [ ] EC2: 임베딩 모델(torch CPU) 때문에 **RAM 4GB 이상** (t3.medium 이상)
