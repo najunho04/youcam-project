@@ -19,15 +19,19 @@ erDiagram
     varchar age_group
     varchar gender
     varchar season
+    varchar season_subtype
+    jsonb face_colors
     varchar selfie_key
     varchar body_image_key
     timestamptz created_at
   }
   products {
     bigint id PK
-    varchar naver_product_id UK
+    varchar source UK "source + external_id"
+    varchar external_id UK
     varchar title
-    int price
+    numeric price
+    varchar currency
     varchar mall_name
     text purchase_url
     text image_url
@@ -85,18 +89,22 @@ erDiagram
 | age_group | AgeGroup | NULL (프로필 입력 전) | profile |
 | gender | Gender | NULL | profile |
 | season | Season | NULL (진단 전) | personal_color |
+| season_subtype | SeasonSubtype | NULL (진단 전). season 과 함께 쓰고 함께 NULL | personal_color |
+| face_colors | jsonb | NULL (진단 전). YouCam 얼굴 색 분석 응답 그대로: `{ skin, lip, eye, eyebrow, hair, eyeColorName, hairColorName }`. 판정 근거(`analysis`)는 저장하지 않고 이 값으로 다시 계산 | personal_color |
 | selfie_key | varchar(255) | NULL. 얼굴 사진. S3 키 `selfies/{userId}/{uuid}.jpg` | personal_color (피부톤 분석) |
 | body_image_key | varchar(255) | NULL. 상반신 사진. S3 키 `body-images/{userId}/{uuid}.jpg` | personal_color (쓰기) · fitting (원본으로 읽기) |
 | created_at | timestamptz | NOT NULL DEFAULT now() | |
 
-### products — 네이버 쇼핑 상품 + 임베딩 (벡터DB 역할)
+### products — 쇼핑 상품(eBay, 추후 네이버) + 임베딩 (벡터DB 역할)
 | 컬럼 | 타입 | 제약 |
 |---|---|---|
 | id | bigserial | PK |
-| naver_product_id | varchar(50) | NOT NULL, UNIQUE (배치 upsert 키) |
-| title | varchar(255) | NOT NULL |
-| price | int | NOT NULL |
-| mall_name | varchar(100) | NOT NULL |
+| source | ProductSource | NOT NULL. 지금은 `EBAY` 만 |
+| external_id | varchar(100) | NOT NULL. 출처의 상품 ID (eBay `itemId`). UNIQUE `(source, external_id)` = 배치 upsert 키 |
+| title | varchar(255) | NOT NULL (eBay 제목은 최대 80자) |
+| price | numeric(10,2) | NOT NULL |
+| currency | varchar(3) | NOT NULL. ISO 4217 (eBay 는 `USD`, 네이버는 `KRW`) |
+| mall_name | varchar(100) | NOT NULL. eBay 는 판매자 이름 |
 | purchase_url | text | NOT NULL |
 | image_url | text | NOT NULL (외부 URL. 이미지 저장 X) |
 | gender | Gender | NOT NULL |
@@ -107,7 +115,7 @@ erDiagram
 | embedding | vector(512) | NOT NULL. L2 정규화 |
 | updated_at | timestamptz | NOT NULL |
 
-- 인덱스: `(gender, age_group, category)`. 상품 수천 개 규모라 벡터 인덱스(HNSW)는 생략 — 필터 후 전수 계산으로 충분.
+- 인덱스: `(source, gender, age_group, category)`. 상품 수천 개 규모라 벡터 인덱스(HNSW)는 생략 — 필터 후 전수 계산으로 충분.
 - 쓰기는 `product_ingest`만. 나머지 슬라이스는 읽기 전용.
 
 ### pins — 스와이프용 코디 사진 (Pinterest)

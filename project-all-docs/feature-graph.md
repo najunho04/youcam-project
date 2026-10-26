@@ -13,7 +13,7 @@ graph LR
   auth --> personal_color
   auth --> wardrobe
   profile --> swipe
-  product_ingest --> swipe
+  product_ingest --> recommendation
   swipe --> recommendation
   personal_color --> recommendation
   wardrobe -.선택.-> recommendation
@@ -30,7 +30,7 @@ graph LR
 | 위치 | 내용 |
 |---|---|
 | `backend/src/common/` | SQLAlchemy 모델 5개(entity), DTO(Pydantic), enum, ErrorCode |
-| `backend/src/shared/` | config(env), DB 세션, `current_user` 의존성 + JWT(security), 에러 핸들러(exception), S3 업로드/presign, YouCam 클라이언트, 임베딩 모델 로더, 팔레트·Lab 유틸 |
+| `backend/src/shared/` | config(env), DB 세션, `current_user` 의존성 + JWT(security), 에러 핸들러(exception), S3 업로드/presign, YouCam 클라이언트, 임베딩 모델 로더, 팔레트(12유형·피해야 할 색)·Lab 유틸·퍼스널컬러 판정 함수 |
 | `backend/src/main.py` | FastAPI 앱 조립 (각 슬라이스 router include) |
 | `front/src/common/type/` | 백엔드 DTO·enum과 1:1 타입 |
 | `front/src/shared/` | api 클라이언트(fetch + 토큰), auth(토큰 저장·라우트 가드), ui(버튼·로딩·에러) |
@@ -42,9 +42,9 @@ graph LR
 | 슬라이스 | 화면 / 역할 | 상류 | 하류 | 같은 테이블 쓰는 피쳐 | 병렬 묶음 |
 |---|---|---|---|---|---|
 | auth | 랜딩 · 회원가입 · 로그인 | foundation | profile, personal_color, wardrobe | users(쓰기: profile, personal_color) | 1 (레퍼런스, 단독) |
-| product_ingest | (백 전용 배치) 네이버 수집 → 임베딩 → products upsert | foundation | swipe, recommendation, fitting | products (유일한 쓰기) | 1 (auth와 병렬 가능 — 화면 없음) |
+| product_ingest | (백 전용 배치) eBay 수집 → 착용컷 제외 → 임베딩·대표색 → products upsert → 상품 평균 갱신 | foundation | recommendation, fitting | products, embedding_centroids(PRODUCT) (유일한 쓰기) | 1 (auth와 병렬 가능 — 화면 없음) |
 | profile | 기본 정보 (나이대·성별) | auth | swipe | users.age_group/gender | 2 |
-| personal_color | 얼굴·상반신 사진 업로드 · 퍼스널컬러 결과 | auth | recommendation, fitting | users.season/selfie_key/body_image_key, fittings(사진 변경 시 삭제) | 2 |
+| personal_color | 얼굴·상반신 사진 업로드 · 12유형 결과 + 판정 근거 | auth | recommendation, fitting | users.season/season_subtype/face_colors/selfie_key/body_image_key, fittings(사진 변경 시 삭제) | 2 |
 | wardrobe | 옷장 사진 업로드 (건너뛰기 가능) | auth | recommendation | wardrobe_photos | 2 |
 | swipe | 스와이프 온보딩 | profile, product_ingest | recommendation | swipes | 3 |
 | recommendation | 추천 결과 · 구매 링크 | swipe, personal_color, (wardrobe) | fitting | 읽기 전용 | 4 |

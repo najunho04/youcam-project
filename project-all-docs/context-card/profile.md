@@ -19,7 +19,7 @@
 - PUT /api/users/me/profile (인증 필요)
   - Request `ProfileUpdateRequest { ageGroup: AgeGroup, gender: Gender }` — 둘 다 필수
   - Response 200 `UserDto { id, nickname, ageGroup, gender, personalColor: PersonalColorDto|null }`
-    - personalColor 는 users.season, selfie_key, body_image_key 가 **모두** 있을 때만 채움: `{ season, palette: SEASON_PALETTES[season], selfieUrl: get_url(selfie_key), bodyImageUrl: get_url(body_image_key) }` (get_url = `get_storage().get_url`)
+    - personalColor 는 auth 카드의 `PersonalColorDto` 규칙과 같다 (users.season, season_subtype, face_colors, selfie_key, body_image_key 가 **모두** 있을 때만 채움)
   - Error: UNAUTHORIZED(401), VALIDATION_ERROR(422) — enum 밖 값·누락
 - enum: AgeGroup = LATE_TEENS | TWENTIES | THIRTIES | FORTIES_PLUS, Gender = FEMALE | MALE
 

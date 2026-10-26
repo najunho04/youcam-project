@@ -31,7 +31,7 @@
   - Error: UNAUTHORIZED(401) — 토큰 없음/만료/위조, 또는 토큰은 유효하나 해당 사용자가 DB 에 없음
 - DTO
   - `UserDto { id: number, nickname: string, ageGroup: AgeGroup|null, gender: Gender|null, personalColor: PersonalColorDto|null }`
-  - `PersonalColorDto { season: Season, palette: string[] (hex), selfieUrl: string, bodyImageUrl: string }` — users.season, selfie_key, body_image_key 가 **모두** 있을 때만 채움. palette 는 `shared.color.SEASON_PALETTES[season]`, selfieUrl 은 `get_storage().get_url(selfie_key)`, bodyImageUrl 은 `get_storage().get_url(body_image_key)`
+  - `PersonalColorDto` (personal_color 카드와 같은 형태: season, subtype, palette, avoidPalette, analysis, selfieUrl, bodyImageUrl) — users.season, season_subtype, face_colors, selfie_key, body_image_key 가 **모두** 있을 때만 채움. season·subtype 은 저장값, analysis 는 `shared.color.judge_personal_color(users.face_colors).analysis` 로 다시 만든다 (같은 입력이면 같은 결과). palette 는 `shared.color.SUBTYPE_PALETTES[(season, subtype)]`, avoidPalette 는 `AVOID_PALETTES[season]`, selfieUrl 은 `get_storage().get_url(selfie_key)`, bodyImageUrl 은 `get_storage().get_url(body_image_key)`
 - 에러 응답 형태: `{ "error": { "code": ErrorCode, "message": string } }` (shared/exception 이 처리. 슬라이스는 `AppError(ErrorCode.X)` 만 던짐)
 
 ## 상하류

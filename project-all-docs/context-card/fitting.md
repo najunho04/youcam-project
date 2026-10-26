@@ -23,7 +23,7 @@
 - POST /api/fittings (인증 필요)
   - Request `FittingCreateRequest { productId: number }`
   - Response **202** `FittingDto { id: number, productId: number, product: ProductDto, status: FittingStatus, originalImageUrl: string, resultImageUrl: string|null }`
-    - `ProductDto { id, title, price, mallName, purchaseUrl, imageUrl, style }` (recommendation 과 같은 공용 DTO)
+    - `ProductDto { id, title, price, currency, mallName, purchaseUrl, imageUrl, style }` (recommendation 과 같은 공용 DTO)
     - originalImageUrl = get_storage().get_url(users.body_image_key), resultImageUrl = DONE 일 때 get_url(result_key), 아니면 null
   - 동작:
     - (user, product) 행이 DONE → 그대로 반환 (YouCam 호출 없음, 캐시)
