@@ -51,8 +51,8 @@ eBay Browse API 로 상의 상품을 수집하고, 이미지 임베딩과 대표
   - 토큰: `POST https://api.ebay.com/identity/v1/oauth2/token` (client credentials, scope `https://api.ebay.com/oauth/api_scope`). settings.ebay_client_id / ebay_client_secret. 토큰은 배치 1회 동안 재사용, 만료되면 다시 받음
   - 헤더 `Authorization: Bearer {token}`, `X-EBAY-C-MARKETPLACE-ID: EBAY_US`
   - 쿼리 `q`, `limit`, `offset`
-  - 응답 itemSummaries[]: `itemId`, `title`, `price.value`(문자열), `price.currency`, `image.imageUrl`, `itemWebUrl`, `seller.username` (필드 경로는 실제 응답으로 확인 — 공식 문서 미검증)
-- 매핑: source ← EBAY, external_id ← itemId, title ← title, price ← Decimal(price.value), currency ← price.currency, mall_name ← seller.username (없으면 `"eBay"`), purchase_url ← itemWebUrl, image_url ← image.imageUrl
+  - 응답 itemSummaries[]: `itemId`, `title`, `price.value`(문자열), `price.currency`, `image.imageUrl`, `itemWebUrl` (10/31 실제 응답으로 확인)
+- 매핑: source ← EBAY, external_id ← itemId, title ← title, price ← Decimal(price.value), currency ← price.currency, mall_name ← 항상 `"eBay"` (판매자 아이디 `seller.username` 은 eBay 사용자 정보라 저장하지 않는다 — 계정 삭제 알림 면제 조건), purchase_url ← itemWebUrl, image_url ← image.imageUrl
 - 출력: products upsert. 같은 (source, external_id) 면 갱신, 없으면 삽입
 - 이미지: `shared.image.download_image(url)` 로 받아 임베딩·대표색 계산에만 쓰고 **저장하지 않는다**
 - 임베딩: `shared.embedding.get_embedding_model().embed_images([...])`

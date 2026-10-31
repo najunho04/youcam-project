@@ -146,7 +146,8 @@ def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
     assert color_product.title == "Women's Minimal Knit Top & Cardigan"
     assert color_product.price == Decimal("39.99")
     assert color_product.currency == "USD"
-    assert color_product.mall_name == "color-shop"
+    # 판매자 아이디(eBay 사용자 정보)는 저장하지 않는다 → 판매처는 항상 "eBay"
+    assert color_product.mall_name == "eBay"
     assert color_product.purchase_url == color_item["itemWebUrl"]
     assert color_product.image_url == image_url_of(color_item)
     assert (color_product.gender, color_product.age_group, color_product.style, color_product.category) == (
@@ -158,7 +159,7 @@ def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
     assert color_product.updated_at is not None
     # 단색 → 배경 제거 후 남는 픽셀이 5% 미만이라 영역 전체 → K-means 중심 = 그 색
     assert list(color_product.color_lab) == pytest.approx(list(rgb_to_lab(200, 160, 130)), abs=0.01)
-    # 판매자 없음 → "eBay"
+    # 판매자가 없어도 "eBay"
     assert no_seller_product.mall_name == "eBay"
     assert no_seller_product.price == Decimal("15.50")
     assert list(no_seller_product.color_lab) == pytest.approx(list(rgb_to_lab(255, 255, 255)), abs=0.01)

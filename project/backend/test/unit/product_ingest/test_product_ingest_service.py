@@ -70,13 +70,13 @@ def test_map_ebay_item_maps_fields():
     assert fields.title == "Knit Top"
     assert fields.price == Decimal("15.90")
     assert fields.currency == "USD"
-    assert fields.mall_name == "test-seller"
+    assert fields.mall_name == "eBay"
     assert fields.purchase_url == "https://www.ebay.test/itm/v1|77|0"
     assert fields.image_url == "https://image.test/items/v1|77|0.png"
 
 
-@pytest.mark.parametrize("seller", [None, {}, {"username": ""}])
-def test_map_ebay_item_without_seller_uses_ebay_as_mall_name(seller):
+@pytest.mark.parametrize("seller", [None, {}, {"username": ""}, {"username": "some-seller"}])
+def test_map_ebay_item_never_stores_seller_username(seller):
     item = ebay_item("v1|77|0")
     if seller is None:
         del item["seller"]

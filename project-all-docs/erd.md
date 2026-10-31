@@ -104,7 +104,7 @@ erDiagram
 | title | varchar(255) | NOT NULL (eBay 제목은 최대 80자) |
 | price | numeric(10,2) | NOT NULL |
 | currency | varchar(3) | NOT NULL. ISO 4217 (eBay 는 `USD`, 네이버는 `KRW`) |
-| mall_name | varchar(100) | NOT NULL. eBay 는 판매자 이름 |
+| mall_name | varchar(100) | NOT NULL. eBay 상품은 항상 `eBay` (판매자 아이디는 저장하지 않음) |
 | purchase_url | text | NOT NULL |
 | image_url | text | NOT NULL (외부 URL. 이미지 저장 X) |
 | gender | Gender | NOT NULL |

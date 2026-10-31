@@ -19,7 +19,7 @@ SearchFunction = Callable[[str, int], list[dict]]
 DownloadFunction = Callable[[str], bytes]
 
 LIMIT_COUNT = 50
-DEFAULT_MALL_NAME = "eBay"
+MALL_NAME = "eBay"  # 판매자 아이디(eBay 사용자 정보)는 저장하지 않는다 (계정 삭제 알림 면제 조건)
 
 # 대표색 추출 기준값
 CENTER_REGION_RATIO = 0.8  # 가로·세로 가운데 80% 영역
@@ -97,16 +97,15 @@ def build_keywords() -> list[IngestKeyword]:
 
 
 def map_ebay_item(item: dict) -> EbayProductFields:
-    """eBay itemSummaries[] 한 개 → 저장할 필드. 필수 필드 누락·변환 실패 시 VALIDATION_ERROR. 판매자가 없으면 "eBay"."""
+    """eBay itemSummaries[] 한 개 → 저장할 필드. 필수 필드 누락·변환 실패 시 VALIDATION_ERROR. 판매처는 항상 "eBay"."""
     try:
         price = item["price"]
-        seller = item.get("seller") or {}
         return EbayProductFields(
             external_id=_required_text(item.get("itemId"), "itemId"),
             title=_required_text(item.get("title"), "title"),
             price=Decimal(_required_text(price.get("value"), "price.value")),
             currency=_required_text(price.get("currency"), "price.currency"),
-            mall_name=str(seller.get("username") or DEFAULT_MALL_NAME),
+            mall_name=MALL_NAME,
             purchase_url=_required_text(item.get("itemWebUrl"), "itemWebUrl"),
             image_url=_required_text((item.get("image") or {}).get("imageUrl"), "image.imageUrl"),
         )

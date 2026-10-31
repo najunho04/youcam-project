@@ -192,8 +192,8 @@ YouCam 얼굴 색 분석(`skin-tone-analysis`) 응답의 **모든 필드**(피�
 - [x] 피부톤 분석, 가상 피팅 1회당 크레딧 소모량 → 얼굴 색 분석 20 units, 의류 피팅 2 units
 - [x] 해커톤 심사 기준과 제출물 형식 → 레포 URL, 영문 설명, 스크린샷, 1~3분 데모 영상(YouTube), 테스트 접근. 마감 11/2 11:45 EST
 - [ ] 임베딩 모델 라이선스
-- [ ] eBay Production 키 활성화 (계정 삭제 알림 구독 또는 면제 신청)
 - [ ] eBay 검색어에 나이대 단어를 넣었을 때 결과 품질. 나쁘면 나이대 단어만 빼고 같은 결과를 나이대 4개에 나눠 넣는다
-- [ ] eBay 응답 필드 경로(`itemSummaries[].itemId·title·price·image.imageUrl·itemWebUrl·seller`)를 실제 응답으로 확인 (공식 문서 접근이 막혀 미검증)
+- [x] eBay 응답 필드 경로(`itemSummaries[].itemId·title·price·image.imageUrl·itemWebUrl`) → 10/31 실제 응답으로 확인
+- [x] eBay Production 키 활성화 → 10/31 계정 삭제 알림 면제(eBay 사용자 데이터 미저장)로 활성화. 그래서 판매자 아이디도 저장하지 않는다
 - [ ] 착용컷 상품의 대표색이 피부·하의 색으로 틀리게 잡히는지. 틀리면 피부색과 가까운 묶음을 후보에서 뺀다
 - [ ] 퍼스널컬러 판정 기준값(축 기준점·스케일)을 실제 사진 여러 장으로 보정
