@@ -156,7 +156,7 @@ def get_recommendations(database_session: Session, user: User) -> Recommendation
     preferred_styles = select_preferred_styles(liked_styles)
     is_fallback = len(liked_styles) < MINIMUM_LIKED_COUNT
 
-    candidates = repository.find_top_products(database_session, user.gender, user.age_group)
+    candidates = repository.find_top_products(database_session, user.gender)
     color_scores = compute_color_scores(
         np.asarray([product.color_lab for product in candidates], dtype=float), season, subtype
     )

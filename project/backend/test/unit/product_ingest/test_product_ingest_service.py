@@ -287,3 +287,94 @@ def test_run_ingest_prints_counts_per_keyword(database_session, sample_image_byt
 )
 def test_exit_code_is_one_only_when_all_keywords_failed(report, expected_exit_code):
     assert service.exit_code(report) == expected_exit_code
+
+
+# ---- 카테고리 Best Match 수집 ----
+def unit_vector(axis: int) -> list[float]:
+    vector = [0.0] * 512
+    vector[axis] = 1.0
+    return vector
+
+
+STYLE_TEXT_EMBEDDINGS = {style: unit_vector(index) for index, style in enumerate(Style)}
+
+
+def test_classify_styles_picks_style_relative_to_batch_average():
+    # 모든 이미지가 러블리 문장과 가장 가깝더라도, 평균보다 더 가까운 스타일을 고른다
+    lovely, casual, formal = (STYLE_TEXT_EMBEDDINGS[style] for style in (Style.LOVELY, Style.CASUAL, Style.FORMAL))
+    images = [
+        [0.9 * l + 0.4 * c for l, c in zip(lovely, casual)],
+        [0.9 * l + 0.4 * f for l, f in zip(lovely, formal)],
+        [1.0 * l for l in lovely],
+    ]
+
+    assert service.classify_styles(images, STYLE_TEXT_EMBEDDINGS, Gender.FEMALE) == [Style.CASUAL, Style.FORMAL, Style.LOVELY]
+
+
+def test_classify_styles_never_gives_lovely_to_men():
+    lovely = STYLE_TEXT_EMBEDDINGS[Style.LOVELY]
+    images = [list(lovely), [0.5 * value for value in STYLE_TEXT_EMBEDDINGS[Style.STREET]]]
+
+    assert Style.LOVELY not in service.classify_styles(images, STYLE_TEXT_EMBEDDINGS, Gender.MALE)
+
+
+def test_classify_styles_breaks_ties_by_style_order():
+    assert service.classify_styles([[0.0] * 512], STYLE_TEXT_EMBEDDINGS, Gender.FEMALE) == [Style.MINIMAL]
+
+
+def test_run_category_ingest_searches_each_category_without_query(database_session, sample_image_bytes):
+    calls = []
+
+    def search(query, limit, offset, category_id):
+        calls.append((query, limit, offset, category_id))
+        return []
+
+    report = service.run_category_ingest(search, download_returning(sample_image_bytes(image_format="PNG", size=32)))
+
+    assert calls == [("", 100, 0, "53159"), ("", 100, 0, "15687")]
+    assert (report.saved, report.skipped_existing, report.failed_products, report.failed_categories) == (0, 0, 0, 0)
+
+
+def test_run_category_ingest_saves_without_age_group_and_with_classified_style(
+    database_session, sample_image_bytes, monkeypatch
+):
+    monkeypatch.setattr(service, "classify_styles", lambda embeddings, style_text_embeddings, gender: [Style.STREET] * len(embeddings))
+    items_by_category = {"53159": [ebay_item("v1|900|0")], "15687": [ebay_item("v1|901|0")]}
+
+    report = service.run_category_ingest(
+        lambda query, limit, offset, category_id: [dict(item) for item in items_by_category[category_id]],
+        download_returning(sample_image_bytes(image_format="PNG", size=32)),
+    )
+
+    assert (report.saved, report.skipped_existing, report.failed_products, report.failed_categories) == (2, 0, 0, 0)
+    female_product, male_product = all_products(database_session)
+    assert (female_product.gender, male_product.gender) == (Gender.FEMALE, Gender.MALE)
+    assert female_product.age_group is None and male_product.age_group is None
+    assert female_product.style == Style.STREET and female_product.category == Category.TOP
+    assert female_product.mall_name == "eBay"
+    database_session.expire_all()
+    assert database_session.get(EmbeddingCentroid, EmbeddingDomain.PRODUCT) is not None
+
+
+def test_run_category_ingest_keeps_existing_products_untouched(database_session, create_product, sample_image_bytes):
+    existing = create_product(external_id="v1|910|0", style=Style.FORMAL, age_group=AgeGroup.THIRTIES, title="Existing")
+
+    report = service.run_category_ingest(
+        lambda query, limit, offset, category_id: [ebay_item("v1|910|0", title="New Title")] if category_id == "53159" else [],
+        download_returning(sample_image_bytes(image_format="PNG", size=32)),
+    )
+
+    assert (report.saved, report.skipped_existing) == (0, 1)
+    (product,) = all_products(database_session)
+    assert (product.id, product.title, product.style, product.age_group) == (existing.id, "Existing", Style.FORMAL, AgeGroup.THIRTIES)
+
+
+def test_run_category_ingest_counts_failed_category_and_continues(database_session, sample_image_bytes):
+    def search(query, limit, offset, category_id):
+        if category_id == "53159":
+            raise AppError(ErrorCode.EXTERNAL_API_FAILED, "eBay API 실패")
+        return [ebay_item("v1|920|0")]
+
+    report = service.run_category_ingest(search, download_returning(sample_image_bytes(image_format="PNG", size=32)))
+
+    assert (report.saved, report.failed_categories) == (1, 1)

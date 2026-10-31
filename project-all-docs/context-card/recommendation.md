@@ -29,7 +29,7 @@
   - `ProductDto { id, title, price, currency, mallName, purchaseUrl, imageUrl, style }`
   - Error: PROFILE_REQUIRED(409) — age_group/gender NULL / PERSONAL_COLOR_REQUIRED(409) — season 또는 season_subtype NULL / UNAUTHORIZED(401)
 - 계산:
-  - 후보: products 중 source = EBAY, gender·age_group 일치, category = TOP (스와이프는 핀에 하므로 상품을 제외하지 않음)
+  - 후보: products 중 source = EBAY, gender 일치, category = TOP. **상품 나이대는 보지 않는다** (eBay 에는 나이대 정보가 없고, 카테고리 Best Match 상품은 age_group 이 NULL). 사용자 나이대는 스와이프 핀 고를 때만 쓴다. 스와이프는 핀에 하므로 상품을 제외하지 않음
   - 취향 벡터 `u = normalize(mean(L − P) + 1.5 × mean(C) − 0.5 × mean(D − P))` — L: 좋아요 핀 embedding, C: wardrobe_photos embedding(평균 빼지 않음), D: 싫어요 핀 embedding, P: 핀평균. 비어 있는 항은 0 벡터, 평균이 없으면 0 벡터
   - tasteScore = 후보 안에서 Z-score 정규화 후 표준정규 CDF:
     - c_i = cos(u, product_i.embedding − Q) — Q: 상품평균, μ·σ = 전체 후보 c_i 의 평균·모표준편차(ddof=0)

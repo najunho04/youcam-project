@@ -15,7 +15,7 @@ eBay Browse API 로 상의 상품을 수집하고, 이미지 임베딩과 대표
   - id bigserial PK
   - source varchar — ProductSource (`EBAY`), external_id varchar(100) — UNIQUE (source, external_id) = upsert 키
   - title varchar(255), price numeric(10,2), currency varchar(3), mall_name varchar(100), purchase_url text, image_url text — 전부 NOT NULL
-  - gender Gender, age_group AgeGroup, style Style, category Category — NOT NULL (수집 키워드 기준으로 부여)
+  - gender Gender, style Style, category Category — NOT NULL. age_group AgeGroup — 검색어 수집은 키워드 나이대, 카테고리 Best Match 수집은 NULL
   - color_lab real[3] NOT NULL — 대표색 CIE Lab
   - embedding vector(512) NOT NULL — L2 정규화
   - updated_at timestamptz NOT NULL
@@ -59,6 +59,13 @@ eBay Browse API 로 상의 상품을 수집하고, 이미지 임베딩과 대표
     - `IngestReport { saved: int, failed_products: int, failed_keywords: int }` — saved 는 삽입 + 갱신 건수
   - `python -m feature.product_ingest` 는 실제 eBay 호출 함수와 `shared.image.download_image` 를 넘겨 `run_ingest` 를 실행하고, 결과를 출력한 뒤 위 종료 코드로 끝난다
 - 네이버 수집 코드(`naver_client.py`)는 지우지 않는다. 한국어 UI용 네이버 상품(source = NAVER, currency = KRW)은 최후순위로 나중에 붙인다
+
+## 카테고리 Best Match 수집 (10/31 추가, `python -m feature.product_ingest category`)
+- 성별마다 검색어 없이 상의 카테고리 전체를 eBay 기본 정렬(Best Match)로 상위 100개: 여성 `53159`(Women's Tops), 남성 `15687`(Men's T-Shirts). eBay 화면의 "Best Match" 목록과 같은 기준
+- `run_category_ingest(search, download) -> CategoryIngestReport { saved, skipped_existing, failed_products, failed_categories }` — search 는 `("", 100, 0, category_id)` 로 부른다
+- 스타일은 FashionCLIP 이미지-텍스트 유사도로 자동 분류 (`classify_styles`): 스타일 문장마다 코사인 유사도를 구하고, **스타일별로 그 묶음(100개) 평균을 뺀 값**이 가장 큰 스타일. 같으면 Style 정의 순서. 남성은 러블리 제외 (스와이프 핀과 같은 기준). 평균을 빼지 않으면 한 문장으로 쏠린다 (여성 56% 러블리, 남성 87% 스트릿)
+- 나이대는 NULL. 이미 있는 상품((source, external_id))은 건드리지 않는다 (기존 분류 유지)
+- 매핑·대표색·임베딩·PRODUCT 평균 갱신은 검색어 수집과 같다
 
 ## 상하류
 - 상류: 사람이 `make ingest` 실행 (하루 1회)

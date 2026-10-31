@@ -85,7 +85,7 @@ FittingDto          { id: number, productId: number, status: FittingStatus,
 
 - **personal_color**: 사진 2장 업로드 (YouCam 조건이 달라서 분리 — 얼굴 색 분석: 얼굴 폭이 사진 폭의 60% 이상 / 피팅: 가슴 위 상반신). 얼굴 사진만 YouCam 얼굴 색 분석 → 응답의 얼굴 색 5개 + 색 이름 2개를 `users.face_colors`에 그대로 저장 → 3축 판정으로 `season`·`season_subtype` 저장. 상반신 사진은 저장만 하고 피팅 원본으로 쓴다. 재업로드 시 덮어씀. 판정 함수·팔레트는 `shared.color`에 둔다 (auth 의 `UserDto.personalColor` 도 같은 함수로 `analysis` 를 다시 계산하므로 슬라이스 안에 두면 안 됨).
 - **swipe/cards**: 카드는 상품이 아니라 Pinterest 코디 사진(`pins`). 사용자 성별·나이대 필터 → 스타일별 균등 샘플링(여자 5개 스타일, 남자 미니멀·캐주얼·스트릿 3개), 이미 스와이프한 핀 제외. 답변은 스와이프가 끝난 뒤 한 번에 제출(재제출 시 upsert).
-- **recommendation**: 요청마다 계산(저장 X). L·D 는 스와이프한 핀, P·Q 는 핀평균·상품평균(`embedding_centroids`). `u = normalize(mean(L−P) + 1.5·mean(C) − 0.5·mean(D−P))`, `c_i = cos(u, e_i − Q)`, `score = 0.7·taste + 0.3·color`, 성별·나이대 일치 상품 전체 중 상위 6개. color 는 12유형 팔레트 기준이고, 피해야 할 팔레트와 ΔE < 15 이면 절반.
+- **recommendation**: 요청마다 계산(저장 X). L·D 는 스와이프한 핀, P·Q 는 핀평균·상품평균(`embedding_centroids`). `u = normalize(mean(L−P) + 1.5·mean(C) − 0.5·mean(D−P))`, `c_i = cos(u, e_i − Q)`, `score = 0.7·taste + 0.3·color`, 성별 일치 상품 전체 중 상위 6개 (상품 나이대는 보지 않는다). color 는 12유형 팔레트 기준이고, 피해야 할 팔레트와 ΔE < 15 이면 절반.
 - **fitting**: 같은 (user, product) 결과가 `DONE`이면 캐시 반환. 아니면 `PENDING` 행 생성 후 백그라운드에서 YouCam 호출 → 프론트는 `GET`을 2초 간격 폴링. 실패 시 `FAILED`, 재시도는 다시 `POST`.
 - **구매 연결(F6)**: 별도 API 없음. `ProductDto.purchaseUrl`(eBay 상품 페이지)로 이동. 가격은 `currency` 기준으로 표시 (USD 는 `$19.99`).
 - **한국어 UI → 네이버 상품 (최후순위)**: products 에 `source` 를 두고, 추천 후보를 화면 언어로 거른다 (en → EBAY, ko → NAVER). 프론트가 요청에 언어를 실어 보내는 방식은 그때 정한다. 지금은 EBAY 만 적재.

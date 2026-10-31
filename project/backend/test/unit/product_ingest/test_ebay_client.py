@@ -78,3 +78,18 @@ def test_invalid_item_summaries_raise_external_api_failed():
     with pytest.raises(AppError) as error:
         client_with(handler).search_items("q", 50)
     assert error.value.error_code == ErrorCode.EXTERNAL_API_FAILED
+
+
+def test_search_items_without_query_sends_only_category():
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == ebay_client.TOKEN_PATH:
+            return token_response()
+        return httpx.Response(200, json={"itemSummaries": SAMPLE_ITEMS})
+
+    client_with(handler).search_items("", 100, 0, "53159")
+
+    search_request = [request for request in requests if request.url.path == ebay_client.SEARCH_PATH][0]
+    assert dict(search_request.url.params) == {"limit": "100", "offset": "0", "category_ids": "53159"}

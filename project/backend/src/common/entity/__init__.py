@@ -43,7 +43,7 @@ class Product(Base):
     __tablename__ = "products"
     __table_args__ = (
         UniqueConstraint("source", "external_id", name="uq_products_source_external_id"),
-        Index("ix_products_filter", "source", "gender", "age_group", "category"),
+        Index("ix_products_filter", "source", "gender", "category"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -56,7 +56,8 @@ class Product(Base):
     purchase_url: Mapped[str] = mapped_column(Text, nullable=False)
     image_url: Mapped[str] = mapped_column(Text, nullable=False)
     gender: Mapped[Gender] = mapped_column(_enum_column(Gender), nullable=False)
-    age_group: Mapped[AgeGroup] = mapped_column(_enum_column(AgeGroup), nullable=False)
+    # 카테고리 Best Match 로 가져온 상품은 나이대가 없다 (NULL). 추천은 상품 나이대를 보지 않는다
+    age_group: Mapped[AgeGroup | None] = mapped_column(_enum_column(AgeGroup), nullable=True)
     style: Mapped[Style] = mapped_column(_enum_column(Style), nullable=False)
     category: Mapped[Category] = mapped_column(_enum_column(Category), nullable=False)
     color_lab: Mapped[list[float]] = mapped_column(ARRAY(Float), nullable=False)

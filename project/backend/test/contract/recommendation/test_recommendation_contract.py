@@ -4,7 +4,7 @@ GET /api/recommendations (인증 필요)
 - Response 200 RecommendationResponse { styleTags, season, subtype, palette, isFallback, items: RecommendationItem[] }
 - RecommendationItem { product: ProductDto, score, tasteScore, colorScore, reasonTags }
 - ProductDto { id, title, price, currency, mallName, purchaseUrl, imageUrl, style }
-- 스와이프는 핀(코디 사진)에 한다. 후보: source = EBAY, gender·age_group 일치 + TOP 상품 전체 (스와이프와 무관)
+- 스와이프는 핀(코디 사진)에 한다. 후보: source = EBAY, gender 일치 + TOP 상품 전체 (스와이프와 무관). 상품 나이대는 보지 않는다 (NULL 포함)
 - 핀평균 P·상품평균 Q 는 embedding_centroids 에 미리 적재 (없으면 0 벡터)
 - u = normalize(mean(L − P) + 1.5 × mean(C) − 0.5 × mean(D − P)), c_i = cos(u, e_i − Q)
 - tasteScore = Φ((c_i − μ) / σ) (σ = 0 이면 0.5)
@@ -280,11 +280,13 @@ def test_recommendations_rank_all_candidates_by_centered_taste_and_color(
         matching_product(create_product, style=Style.FORMAL, embedding=axis_vector((0, 1.0), (3, 1.0)), color_lab=shifted_lab(base_color, 5)),
         matching_product(create_product, style=Style.FORMAL, embedding=axis_vector((0, 1.0), (3, 1.0)), color_lab=shifted_lab(base_color, 5)),
         matching_product(create_product, style=Style.STREET, embedding=axis_vector((3, 1.0)), color_lab=shifted_lab(base_color, -30)),
+        # 상품 나이대는 보지 않는다: 사용자와 다른 나이대·나이대 없음(NULL)도 후보
+        create_product(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, style=Style.CASUAL, embedding=axis_vector((4, 1.0)), color_lab=shifted_lab(base_color, 15)),
+        create_product(gender=Gender.FEMALE, age_group=None, style=Style.MINIMAL, embedding=axis_vector((5, 1.0)), color_lab=shifted_lab(base_color, -10)),
     ]
-    # 후보가 아닌 상품: 성별·나이대 불일치 (취향·컬러 모두 최고점이어도 제외)
+    # 후보가 아닌 상품: 성별 불일치·출처 불일치 (취향·컬러 모두 최고점이어도 제외)
     excluded_products = [
         create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
-        create_product(gender=Gender.FEMALE, age_group=AgeGroup.THIRTIES, embedding=axis_vector((0, 1.0)), color_lab=list(base_color)),
         # 출처가 EBAY 가 아닌 상품 (한국어 UI용 네이버 상품)
         matching_product(
             create_product, source=ProductSource.NAVER, currency="KRW", embedding=axis_vector((0, 1.0)), color_lab=list(base_color)
@@ -465,7 +467,8 @@ def test_recommendations_without_swipes_or_candidates_return_season_tag_and_empt
     season = Season.WINTER_COOL
     user = matching_user(create_user, season)
     create_product(gender=Gender.MALE, age_group=AgeGroup.TWENTIES)
-    create_product(gender=Gender.FEMALE, age_group=AgeGroup.FORTIES_PLUS)
+    create_product(gender=Gender.MALE, age_group=None)
+    create_product(gender=Gender.FEMALE, source=ProductSource.NAVER, currency="KRW")
 
     response = client.get(RECOMMENDATIONS_PATH, headers=auth_headers(user))
 

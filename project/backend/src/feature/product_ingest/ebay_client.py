@@ -45,7 +45,9 @@ class EbayClient:
 
     def search_items(self, query: str, limit: int, offset: int = 0, category_id: str | None = None) -> list[dict]:
         """itemSummaries[] 를 그대로 돌려준다. 결과가 없으면 빈 목록. category_id 가 있으면 그 카테고리만."""
-        params: dict[str, str | int] = {"q": query, "limit": limit, "offset": offset}
+        params: dict[str, str | int] = {"limit": limit, "offset": offset}
+        if query:  # 빈 검색어면 카테고리 전체를 eBay 기본 정렬(Best Match)로 받는다
+            params["q"] = query
         if category_id is not None:
             params["category_ids"] = category_id
         try:

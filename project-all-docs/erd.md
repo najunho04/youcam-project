@@ -108,14 +108,14 @@ erDiagram
 | purchase_url | text | NOT NULL |
 | image_url | text | NOT NULL (외부 URL. 이미지 저장 X) |
 | gender | Gender | NOT NULL |
-| age_group | AgeGroup | NOT NULL |
-| style | Style | NOT NULL (수집 키워드 기준) |
+| age_group | AgeGroup | NULL 허용. 검색어 수집 상품은 키워드 나이대, 카테고리 Best Match 상품은 NULL. 추천은 보지 않는다 |
+| style | Style | NOT NULL (검색어 수집은 키워드 기준, 카테고리 Best Match 수집은 FashionCLIP 자동 분류) |
 | category | Category | NOT NULL |
 | color_lab | real[3] | NOT NULL. 대표색 Lab |
 | embedding | vector(512) | NOT NULL. L2 정규화 |
 | updated_at | timestamptz | NOT NULL |
 
-- 인덱스: `(source, gender, age_group, category)`. 상품 수천 개 규모라 벡터 인덱스(HNSW)는 생략 — 필터 후 전수 계산으로 충분.
+- 인덱스: `(source, gender, category)`. 상품 수천 개 규모라 벡터 인덱스(HNSW)는 생략 — 필터 후 전수 계산으로 충분.
 - 쓰기는 `product_ingest`만. 나머지 슬라이스는 읽기 전용.
 
 ### pins — 스와이프용 코디 사진 (Pinterest)
