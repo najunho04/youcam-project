@@ -43,13 +43,16 @@ class EbayClient:
             raise AppError(ErrorCode.EXTERNAL_API_FAILED, "eBay 토큰 발급 실패") from error
         return self._access_token
 
-    def search_items(self, query: str, limit: int) -> list[dict]:
-        """itemSummaries[] 를 그대로 돌려준다. 결과가 없으면 빈 목록. offset=0 고정."""
+    def search_items(self, query: str, limit: int, offset: int = 0, category_id: str | None = None) -> list[dict]:
+        """itemSummaries[] 를 그대로 돌려준다. 결과가 없으면 빈 목록. category_id 가 있으면 그 카테고리만."""
+        params: dict[str, str | int] = {"q": query, "limit": limit, "offset": offset}
+        if category_id is not None:
+            params["category_ids"] = category_id
         try:
             response = self._http.get(
                 SEARCH_PATH,
                 headers={"Authorization": f"Bearer {self._token()}", "X-EBAY-C-MARKETPLACE-ID": self._marketplace_id},
-                params={"q": query, "limit": limit, "offset": 0},
+                params=params,
             )
             response.raise_for_status()
             items = response.json().get("itemSummaries", [])

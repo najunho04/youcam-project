@@ -13,8 +13,8 @@ from common.error import AppError, ErrorCode
 from feature.product_ingest import service
 from shared.color import rgb_to_lab
 
-FEMALE_TWENTIES_MINIMAL = "women 20s minimal top"
-MALE_THIRTIES_STREET = "men 30s streetwear top"
+FEMALE_TWENTIES_MINIMAL = ("women trendy minimal top", 50)
+MALE_THIRTIES_STREET = ("men streetwear top", 0)
 
 
 def ebay_item(item_id: str, **overrides) -> dict:
@@ -37,7 +37,7 @@ def png_bytes(image: Image.Image) -> bytes:
 
 
 def search_returning(items_by_query: dict[str, list[dict]]):
-    return lambda query, limit: [dict(item) for item in items_by_query.get(query, [])]
+    return lambda query, limit, offset, category_id: [dict(item) for item in items_by_query.get((query, offset), [])]
 
 
 def download_returning(image_bytes: bytes):
@@ -58,8 +58,32 @@ def test_build_keywords_follows_gender_age_group_style_enum_order():
         (gender, age_group, style) for gender in Gender for age_group in AgeGroup for style in Style
     ]
     assert all(keyword.category == Category.TOP for keyword in keywords)
-    assert keywords[0].search_query == "women teen minimal top"
-    assert keywords[-1].search_query == "men 40s feminine top"
+    assert keywords[0].search_query == "women trendy minimal top"
+    assert keywords[-1].search_query == "men feminine top"
+
+
+@pytest.mark.parametrize(
+    ("age_group", "expected_query", "expected_offset"),
+    [
+        (AgeGroup.LATE_TEENS, "women trendy casual top", 0),
+        (AgeGroup.TWENTIES, "women trendy casual top", 50),
+        (AgeGroup.THIRTIES, "women casual top", 0),
+        (AgeGroup.FORTIES_PLUS, "women casual top", 50),
+    ],
+)
+def test_keyword_never_uses_age_words_and_splits_same_query_by_page(age_group, expected_query, expected_offset):
+    keyword = service.IngestKeyword(gender=Gender.FEMALE, age_group=age_group, style=Style.CASUAL, category=Category.TOP)
+
+    assert keyword.search_query == expected_query
+    assert keyword.search_offset == expected_offset
+
+
+def test_keyword_category_is_tops_for_women_and_shirts_for_men():
+    def keyword_of(gender):
+        return service.IngestKeyword(gender=gender, age_group=AgeGroup.TWENTIES, style=Style.MINIMAL, category=Category.TOP)
+
+    assert keyword_of(Gender.FEMALE).category_id == "53159"
+    assert keyword_of(Gender.MALE).category_id == "185100"
 
 
 # ---- eBay 항목 매핑 ----
@@ -236,18 +260,20 @@ def test_run_ingest_updates_existing_product_centroid(database_session, create_p
 
 
 def test_run_ingest_prints_counts_per_keyword(database_session, sample_image_bytes, capsys):
-    def search(query: str, limit: int) -> list[dict]:
-        if query == MALE_THIRTIES_STREET:
+    def search(query: str, limit: int, offset: int, category_id: str) -> list[dict]:
+        if (query, offset) == MALE_THIRTIES_STREET:
             raise AppError(ErrorCode.EXTERNAL_API_FAILED, "eBay API 실패")
-        if query == FEMALE_TWENTIES_MINIMAL:
+        if (query, offset) == FEMALE_TWENTIES_MINIMAL:
             return [ebay_item("v1|40|0"), ebay_item("v1|41|0", price={"value": "ask", "currency": "USD"})]
         return []
 
     service.run_ingest(search, download_returning(sample_image_bytes(image_format="PNG", size=32)))
 
     output_lines = capsys.readouterr().out.splitlines()
-    assert any(FEMALE_TWENTIES_MINIMAL in line and "수집 2" in line and "저장 1" in line and "실패 1" in line for line in output_lines)
-    assert any(MALE_THIRTIES_STREET in line and "키워드 실패" in line for line in output_lines)
+    female_label = f"{FEMALE_TWENTIES_MINIMAL[0]} @{FEMALE_TWENTIES_MINIMAL[1]}"
+    male_label = f"{MALE_THIRTIES_STREET[0]} @{MALE_THIRTIES_STREET[1]}"
+    assert any(female_label in line and "수집 2" in line and "저장 1" in line and "실패 1" in line for line in output_lines)
+    assert any(male_label in line and "키워드 실패" in line for line in output_lines)
 
 
 # ---- 종료 코드 ----

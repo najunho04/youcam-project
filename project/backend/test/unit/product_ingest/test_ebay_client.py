@@ -29,8 +29,8 @@ def test_search_items_gets_token_once_and_sends_query_with_marketplace():
         return httpx.Response(200, json={"itemSummaries": SAMPLE_ITEMS})
 
     client = client_with(handler)
-    first_items = client.search_items("women 20s minimal top", 50)
-    client.search_items("men 30s casual top", 50)
+    first_items = client.search_items("women trendy minimal top", 50, 50, "53159")
+    client.search_items("men casual top", 50)
 
     assert first_items == SAMPLE_ITEMS
     token_requests = [request for request in requests if request.url.path == ebay_client.TOKEN_PATH]
@@ -40,7 +40,10 @@ def test_search_items_gets_token_once_and_sends_query_with_marketplace():
     assert token_requests[0].headers["Authorization"].startswith("Basic ")
     assert search_requests[0].headers["Authorization"] == "Bearer token-1"
     assert search_requests[0].headers["X-EBAY-C-MARKETPLACE-ID"] == get_settings().ebay_marketplace_id
-    assert dict(search_requests[0].url.params) == {"q": "women 20s minimal top", "limit": "50", "offset": "0"}
+    assert dict(search_requests[0].url.params) == {
+        "q": "women trendy minimal top", "limit": "50", "offset": "50", "category_ids": "53159",
+    }
+    assert dict(search_requests[1].url.params) == {"q": "men casual top", "limit": "50", "offset": "0"}
 
 
 def test_search_items_without_results_returns_empty_list():

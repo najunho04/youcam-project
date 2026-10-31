@@ -15,7 +15,8 @@ from shared.color import LabColor
 from shared.database import session_scope
 from shared.embedding import get_embedding_model
 
-SearchFunction = Callable[[str, int], list[dict]]
+# search(query, limit, offset, category_id) → eBay itemSummaries[]
+SearchFunction = Callable[[str, int, int, str], list[dict]]
 DownloadFunction = Callable[[str], bytes]
 
 LIMIT_COUNT = 50
@@ -30,12 +31,12 @@ MAXIMUM_CLUSTER_ITERATIONS = 10
 ANALYSIS_MAXIMUM_SIDE = 200  # 계산량을 줄이려고 긴 변을 이 크기로 줄인다 (가까운 픽셀 보간이라 색이 섞이지 않는다)
 
 _GENDER_WORDS = {Gender.FEMALE: "women", Gender.MALE: "men"}
-_AGE_GROUP_WORDS = {
-    AgeGroup.LATE_TEENS: "teen",
-    AgeGroup.TWENTIES: "20s",
-    AgeGroup.THIRTIES: "30s",
-    AgeGroup.FORTIES_PLUS: "40s",
-}
+# eBay 상의 카테고리. 여성 Tops, 남성 Shirts (Taxonomy API 로 확인)
+CATEGORY_IDS = {Gender.FEMALE: "53159", Gender.MALE: "185100"}
+# eBay 는 나이대 검색을 모른다 ("40s" 는 1940년대 빈티지로 읽힌다). 10·20대는 "trendy" 를 붙이고 30·40대는 붙이지 않는다.
+# 같은 검색어를 쓰는 두 나이대는 결과 페이지로 나눈다 (앞 나이대 1~50번째, 뒤 나이대 51~100번째)
+_TRENDY_AGE_GROUPS = {AgeGroup.LATE_TEENS, AgeGroup.TWENTIES}
+_SECOND_PAGE_AGE_GROUPS = {AgeGroup.TWENTIES, AgeGroup.FORTIES_PLUS}
 _STYLE_WORDS = {
     Style.MINIMAL: "minimal",
     Style.CASUAL: "casual",
@@ -62,10 +63,20 @@ class IngestKeyword:
 
     @property
     def search_query(self) -> str:
-        return (
-            f"{_GENDER_WORDS[self.gender]} {_AGE_GROUP_WORDS[self.age_group]} "
-            f"{_STYLE_WORDS[self.style]} {_CATEGORY_WORDS[self.category]}"
-        )
+        trendy = " trendy" if self.age_group in _TRENDY_AGE_GROUPS else ""
+        return f"{_GENDER_WORDS[self.gender]}{trendy} {_STYLE_WORDS[self.style]} {_CATEGORY_WORDS[self.category]}"
+
+    @property
+    def search_offset(self) -> int:
+        return LIMIT_COUNT if self.age_group in _SECOND_PAGE_AGE_GROUPS else 0
+
+    @property
+    def category_id(self) -> str:
+        return CATEGORY_IDS[self.gender]
+
+    @property
+    def label(self) -> str:
+        return f"{self.search_query} @{self.search_offset}"
 
 
 @dataclass(frozen=True)
@@ -196,9 +207,9 @@ def run_ingest(search: SearchFunction, download: DownloadFunction) -> IngestRepo
     끝나면 products 전체 embedding 평균을 embedding_centroids(PRODUCT) 에 저장한다."""
     saved = failed_products = failed_keywords = 0
     for keyword in build_keywords():
-        query = keyword.search_query
+        query = keyword.label
         try:
-            items = search(query, LIMIT_COUNT)
+            items = search(keyword.search_query, LIMIT_COUNT, keyword.search_offset, keyword.category_id)
         except AppError as error:
             failed_keywords += 1
             print(f"[{query}] 키워드 실패: {error.message}")

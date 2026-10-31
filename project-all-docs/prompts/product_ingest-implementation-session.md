@@ -40,17 +40,19 @@ eBay Browse API 로 상의 상품을 수집하고, 이미지 임베딩과 대표
 - embedding_centroids: domain(`PRODUCT`) PK, embedding vector(512), updated_at
 
 ## 계약 (배치 입출력)
-- 입력: 수집 키워드 목록 = Gender × AgeGroup × Style × Category(TOP) — 네이버 때와 같은 조합 40개
-  - 키워드별 검색어: `"{성별} {나이대} {스타일} top"` (예: `"women 20s minimal top"`)
+- 입력: 수집 키워드 목록 = Gender × AgeGroup × Style × Category(TOP) — 40개
+  - eBay 는 나이대 검색을 모른다. "20s·40s" 를 넣으면 1920·1940년대 빈티지로 읽혀 옛날 옷만 나왔다 (10/31). 그래서 나이대 단어를 쓰지 않는다
+  - 키워드별 검색어: 10·20대 `"{성별} trendy {스타일} top"`, 30·40대 `"{성별} {스타일} top"` (예: `"women trendy minimal top"`, `"men formal top"`)
     - 성별: FEMALE women / MALE men
-    - 나이대: LATE_TEENS teen / TWENTIES 20s / THIRTIES 30s / FORTIES_PLUS 40s
     - 스타일: MINIMAL minimal / CASUAL casual / STREET streetwear / FORMAL formal / LOVELY feminine
-  - 키워드당 수집 개수: 50 (API 1회, `limit=50, offset=0`). 키워드 40개 → 최대 약 2,000개
-  - 추가 필터 없음 (네이버 때와 같다. 상태·판매 방식·가격으로 거르지 않는다)
+  - 같은 검색어를 쓰는 두 나이대는 결과 페이지로 나눈다: 10·30대 `offset=0` (1~50번째), 20·40대 `offset=50` (51~100번째). 상품은 한 나이대에만 들어가므로 나누지 않으면 앞 나이대가 빈다
+  - 카테고리: 여성 `53159`(Women's Clothing > Tops), 남성 `185100`(Men's Clothing > Shirts). Taxonomy API 로 확인. 가방·신발 같은 상의 아닌 상품을 막는다
+  - 키워드당 수집 개수: 50 (API 1회, `limit=50`). 키워드 40개 → 최대 약 2,000개
+  - 상품 상태·판매 방식·가격 필터는 걸지 않는다 (eBay 상품 절반 정도는 중고)
 - 외부 API: eBay Browse `GET https://api.ebay.com/buy/browse/v1/item_summary/search`
   - 토큰: `POST https://api.ebay.com/identity/v1/oauth2/token` (client credentials, scope `https://api.ebay.com/oauth/api_scope`). settings.ebay_client_id / ebay_client_secret. 토큰은 배치 1회 동안 재사용, 만료되면 다시 받음
   - 헤더 `Authorization: Bearer {token}`, `X-EBAY-C-MARKETPLACE-ID: EBAY_US`
-  - 쿼리 `q`, `limit`, `offset`
+  - 쿼리 `q`, `limit`, `offset`, `category_ids`
   - 응답 itemSummaries[]: `itemId`, `title`, `price.value`(문자열), `price.currency`, `image.imageUrl`, `itemWebUrl` (10/31 실제 응답으로 확인)
 - 매핑: source ← EBAY, external_id ← itemId, title ← title, price ← Decimal(price.value), currency ← price.currency, mall_name ← 항상 `"eBay"` (판매자 아이디 `seller.username` 은 eBay 사용자 정보라 저장하지 않는다 — 계정 삭제 알림 면제 조건), purchase_url ← itemWebUrl, image_url ← image.imageUrl
 - 출력: products upsert. 같은 (source, external_id) 면 갱신, 없으면 삽입
@@ -70,7 +72,7 @@ eBay Browse API 로 상의 상품을 수집하고, 이미지 임베딩과 대표
   - 키워드가 **전부** 실패하면 종료 코드 1, 그 외 0
 - 진입점 (계약 테스트 대상):
   - `feature.product_ingest.run_ingest(search, download) -> IngestReport`
-    - `search(query: str, limit: int) -> list[dict]` — eBay 응답 itemSummaries[] 를 그대로 반환. 실패 시 `AppError(EXTERNAL_API_FAILED)`
+    - `search(query: str, limit: int, offset: int, category_id: str) -> list[dict]` — eBay 응답 itemSummaries[] 를 그대로 반환. 실패 시 `AppError(EXTERNAL_API_FAILED)`
     - `download(url: str) -> bytes` — 실패 시 `AppError(EXTERNAL_API_FAILED)`
     - `IngestReport { saved: int, failed_products: int, failed_keywords: int }` — saved 는 삽입 + 갱신 건수
   - `python -m feature.product_ingest` 는 실제 eBay 호출 함수와 `shared.image.download_image` 를 넘겨 `run_ingest` 를 실행하고, 결과를 출력한 뒤 위 종료 코드로 끝난다

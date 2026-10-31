@@ -1,7 +1,11 @@
 """product_ingest 슬라이스 계약 테스트. 컨텍스트 카드(슬라이스: product_ingest)의 배치 입출력만 검증한다.
 
 feature.product_ingest.run_ingest(search, download) -> IngestReport { saved, failed_products, failed_keywords }
-- 키워드: Gender × AgeGroup × Style (enum 정의 순서), 검색어 "{성별} {나이대} {스타일} top", limit=50
+- search(query, limit, offset, category_id)
+- 키워드: Gender × AgeGroup × Style (enum 정의 순서). eBay 는 나이대 검색을 모르므로 나이대 단어를 쓰지 않는다
+  - 10·20대: "{성별} trendy {스타일} top", 30·40대: "{성별} {스타일} top"
+  - 같은 검색어의 두 나이대는 페이지로 나눈다: 10·30대 offset 0, 20·40대 offset 50. limit=50
+  - 카테고리: 여성 53159(Tops), 남성 185100(Shirts)
 - eBay itemSummaries[] → products upsert ((source=EBAY, external_id) 기준). 나중 키워드 값으로 덮어씀. updated_at 갱신
 - 대표색: 테두리 배경색 제거 → K-means(k=3) 가장 큰 묶음의 중심
 - 배치가 끝나면 embedding_centroids(PRODUCT) = products 전체 embedding 평균
@@ -23,12 +27,9 @@ from shared.color import rgb_to_lab
 from shared.embedding import FakeEmbeddingModel
 
 GENDER_WORDS = {Gender.FEMALE: "women", Gender.MALE: "men"}
-AGE_GROUP_WORDS = {
-    AgeGroup.LATE_TEENS: "teen",
-    AgeGroup.TWENTIES: "20s",
-    AgeGroup.THIRTIES: "30s",
-    AgeGroup.FORTIES_PLUS: "40s",
-}
+TRENDY_WORDS = {AgeGroup.LATE_TEENS: " trendy", AgeGroup.TWENTIES: " trendy", AgeGroup.THIRTIES: "", AgeGroup.FORTIES_PLUS: ""}
+OFFSETS = {AgeGroup.LATE_TEENS: 0, AgeGroup.TWENTIES: 50, AgeGroup.THIRTIES: 0, AgeGroup.FORTIES_PLUS: 50}
+CATEGORY_IDS = {Gender.FEMALE: "53159", Gender.MALE: "185100"}
 STYLE_WORDS = {
     Style.MINIMAL: "minimal",
     Style.CASUAL: "casual",
@@ -36,17 +37,19 @@ STYLE_WORDS = {
     Style.FORMAL: "formal",
     Style.LOVELY: "feminine",
 }
-EXPECTED_QUERIES = [
-    f"{GENDER_WORDS[gender]} {AGE_GROUP_WORDS[age_group]} {STYLE_WORDS[style]} top"
+LIMIT_COUNT = 50
+# (query, limit, offset, category_id)
+EXPECTED_CALLS = [
+    (f"{GENDER_WORDS[gender]}{TRENDY_WORDS[age_group]} {STYLE_WORDS[style]} top", LIMIT_COUNT, OFFSETS[age_group], CATEGORY_IDS[gender])
     for gender in Gender
     for age_group in AgeGroup
     for style in Style
 ]
-KEYWORD_COUNT = len(EXPECTED_QUERIES)  # 40
-LIMIT_COUNT = 50
+KEYWORD_COUNT = len(EXPECTED_CALLS)  # 40
 
-FEMALE_TWENTIES_MINIMAL = "women 20s minimal top"
-MALE_THIRTIES_STREET = "men 30s streetwear top"
+# FakeSearch 키: (query, offset)
+FEMALE_TWENTIES_MINIMAL = ("women trendy minimal top", 50)
+MALE_THIRTIES_STREET = ("men streetwear top", 0)
 
 
 def ebay_item(item_id: str, **overrides) -> dict:
@@ -74,18 +77,20 @@ def png_bytes(image: Image.Image) -> bytes:
 
 
 class FakeSearch:
-    """검색어별 items 를 돌려준다. 등록되지 않은 검색어는 빈 목록. failing_queries 는 AppError."""
+    """(검색어, offset) 별 items 를 돌려준다. 등록되지 않은 것은 빈 목록. failing_queries 는 AppError."""
 
-    def __init__(self, items_by_query: dict[str, list[dict]], failing_queries: set[str] | None = None) -> None:
+    def __init__(
+        self, items_by_query: dict[tuple[str, int], list[dict]], failing_queries: set[tuple[str, int]] | None = None
+    ) -> None:
         self.items_by_query = items_by_query
         self.failing_queries = failing_queries or set()
-        self.calls: list[tuple[str, int]] = []
+        self.calls: list[tuple[str, int, int, str]] = []
 
-    def __call__(self, query: str, limit: int) -> list[dict]:
-        self.calls.append((query, limit))
-        if query in self.failing_queries:
+    def __call__(self, query: str, limit: int, offset: int, category_id: str) -> list[dict]:
+        self.calls.append((query, limit, offset, category_id))
+        if (query, offset) in self.failing_queries:
             raise AppError(ErrorCode.EXTERNAL_API_FAILED, "eBay API 실패")
-        return [dict(item) for item in self.items_by_query.get(query, [])]
+        return [dict(item) for item in self.items_by_query.get((query, offset), [])]
 
 
 class FakeDownload:
@@ -139,7 +144,7 @@ def test_saves_mapped_product_with_keyword_attributes_color_and_embedding(
     report = run(search, download)
 
     assert_report(report, saved=2, failed_products=0, failed_keywords=0)
-    assert search.calls == [(query, LIMIT_COUNT) for query in EXPECTED_QUERIES]
+    assert search.calls == EXPECTED_CALLS
 
     color_product, no_seller_product = all_products(database_session)
     assert (color_product.source, color_product.external_id) == (ProductSource.EBAY, "v1|1001|0")
@@ -278,12 +283,12 @@ def test_failed_keyword_is_skipped_and_other_keywords_continue(
     report = run(search, FakeDownload({image_url_of(skipped_item): image, image_url_of(saved_item): image}))
 
     assert_report(report, saved=1, failed_products=0, failed_keywords=1)
-    assert [query for query, _ in search.calls] == EXPECTED_QUERIES
+    assert search.calls == EXPECTED_CALLS
     assert [product.external_id for product in all_products(database_session)] == ["v1|5002|0"]
 
 
 def test_all_keywords_failing_saves_nothing(database_session) -> None:
-    search = FakeSearch({}, failing_queries=set(EXPECTED_QUERIES))
+    search = FakeSearch({}, failing_queries={(query, offset) for query, _, offset, _ in EXPECTED_CALLS})
 
     report = run(search, FakeDownload({}))
 
