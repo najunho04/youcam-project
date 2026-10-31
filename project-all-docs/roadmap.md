@@ -35,15 +35,16 @@
 | 계약 테스트 재작성 (personal_color·product_ingest·recommendation·auth·profile·fitting) | 완료·동결. fitting 만 통과, 나머지는 슬라이스 재작업 전이라 실패 | 958ef9e |
 | 구현 세션 프롬프트 6개 | 완료 | `prompts/{슬라이스}-implementation-session.md` (c072d25) |
 | 로컬 Docker DB 재생성 (핀·사용자 복원) | 완료 | 아래 "DB 재생성 절차" |
-| eBay Production 키 → `.env` 의 `EBAY_CLIENT_ID`·`EBAY_CLIENT_SECRET` | 사람 (10/27까지) | - |
-| C~E. 슬라이스 재작업 | 사람이 구현 세션으로 진행. 순서: personal_color · product_ingest (병렬) → recommendation → auth · profile · fitting | - |
-| `shared.color.SEASON_PALETTES` 임시 별칭 삭제 | 슬라이스 재작업 끝난 뒤 (관리자 세션) | - |
-| Neon(운영) DB 재생성 | 새 코드 배포할 때 (F 단계) | 아래 절차 |
+| eBay Production 키 | 10/31 완료 (계정 삭제 알림 면제로 활성화) | - |
+| eBay 상품 적재·검수 | 10/31 완료: 검색어 40개(10·20대 trendy, 페이지 분할, 상의 카테고리) + 카테고리 Best Match 197개(FashionCLIP 스타일 분류), 수동 검수로 268개 삭제 → 1,528개 | eee3413, f3e2785 |
+| C~E. 슬라이스 재작업 | **10/31 완료** (관리자 세션에서 직접 구현, 백엔드 316·프론트 127 테스트 통과) | 7ab4322 외 |
+| `shared.color.SEASON_PALETTES` 임시 별칭 삭제 | 10/31 완료 | 7ab4322 |
+| Neon(운영) DB 마이그레이션 | **10/31 완료** — users 에 season_subtype·face_colors 추가(기존 진단은 season NULL 로 초기화), products·fittings 재생성 후 로컬 eBay 상품 1,528개·PRODUCT 평균 복사. 핀·사용자·스와이프·옷장 사진 유지. **배포된 예전 코드는 새 스키마와 맞지 않으므로 새 코드 배포 전까지 운영 사이트의 진단·추천·피팅이 깨진다** | 백업 `project/backend/var/db-backup-20261026/neon-full-20261031.dump` |
 
 ### DB 환경
 
 - **개발**: `project/.env` 의 `DATABASE_URL` = 로컬 Docker (`localhost:5432/colorfit`). 10/26 에 Neon → 로컬로 바꿨다 (Neon 주소는 주석으로 남김)
-- **운영**: Neon. 배포된 예전 코드가 쓰고 있으므로 새 코드 배포 전에는 손대지 않는다
+- **운영**: Neon. 10/31 새 스키마로 마이그레이션 완료 (위 표). 다음 배포는 새 코드만 올리면 된다
 - **테스트**: 로컬 Docker 의 `colorfit_test`. 스키마가 바뀌면 `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` 후 테스트를 돌리면 다시 만들어진다
 - DB 컨테이너가 포트 없이 떠 있으면 테스트가 연결 거부로 실패한다 → `docker compose up -d --force-recreate db` (볼륨 유지)
 
