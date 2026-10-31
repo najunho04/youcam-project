@@ -5,11 +5,17 @@ import pytest
 from fastapi import UploadFile
 from sqlalchemy import select
 
+from common.dto import FaceColorsDto
 from common.entity import Fitting, User
-from common.enums import FittingStatus, Season
+from common.enums import FittingStatus, Season, SeasonSubtype
 from common.error import AppError, ErrorCode
 from feature.personal_color import service
-from shared.color import SEASON_PALETTES
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, judge_personal_color
+
+AUTUMN_DEEP_FACE_COLORS = FaceColorsDto(
+    skin="#B07B4F", lip="#B5553A", eye="#3B2414", eyebrow="#3A2618", hair="#2E1C10",
+    eye_color_name="Brown", hair_color_name=None,
+)
 
 
 def upload_file(data: bytes, file_name: str = "photo.jpg") -> UploadFile:
@@ -27,7 +33,10 @@ def load_fittings(database_session, user_id: int) -> list[Fitting]:
 
 
 def create_analyzed_user(create_user, database_session, storage, nickname: str = "analyzed") -> User:
-    user = create_user(nickname=nickname, season=Season.WINTER_COOL)
+    user = create_user(
+        nickname=nickname, season=Season.WINTER_COOL, season_subtype=SeasonSubtype.TRUE,
+        face_colors={"skin": "#C9A79A", "lip": "#A8354F", "eye": "#1E1714", "eyebrow": "#1A1514", "hair": "#141212", "eyeColorName": None, "hairColorName": None},
+    )
     user.selfie_key = f"selfies/{user.id}/previous-selfie.jpg"
     user.body_image_key = f"body-images/{user.id}/previous-body.jpg"
     database_session.commit()
@@ -41,48 +50,14 @@ def add_fitting(database_session, user_id: int, product_id: int) -> None:
     database_session.commit()
 
 
-# ---- determine_season ----
-@pytest.mark.parametrize(
-    ("skin_color_hex", "expected_season"),
-    [
-        ("#F2D3B1", Season.SPRING_WARM),
-        ("#F5D5C8", Season.SUMMER_COOL),
-        ("#B07B4F", Season.AUTUMN_WARM),
-        ("#8E6A63", Season.WINTER_COOL),
-    ],
-)
-def test_determine_season_matches_card_examples(skin_color_hex, expected_season):
-    assert service.determine_season(skin_color_hex) == expected_season
-
-
-@pytest.mark.parametrize(
-    ("lightness", "yellow_blue", "expected_season"),
-    [
-        (70.0, 18.0, Season.SPRING_WARM),  # 두 기준값 모두 경계 포함 → 밝음·웜
-        (70.0, 17.99, Season.SUMMER_COOL),
-        (69.99, 18.0, Season.AUTUMN_WARM),
-        (69.99, 17.99, Season.WINTER_COOL),
-    ],
-)
-def test_determine_season_boundaries_include_threshold_values(monkeypatch, lightness, yellow_blue, expected_season):
-    monkeypatch.setattr(service, "hex_to_lab", lambda hex_color: (lightness, 0.0, yellow_blue))
-
-    assert service.determine_season("#000000") == expected_season
-
-
-def test_season_thresholds_are_slice_constants():
-    assert service.WARM_YELLOW_BLUE_THRESHOLD == 18
-    assert service.BRIGHT_LIGHTNESS_THRESHOLD == 70
-
-
 # ---- analyze_personal_color: 정상 ----
-def test_analyze_stores_season_and_keys_and_returns_dto(
+def test_analyze_stores_judgment_and_keys_and_returns_dto(
     database_session, create_user, storage, youcam_client, sample_image_bytes
 ):
     user = create_user(nickname="fresh")
     selfie_bytes = sample_image_bytes(color=(220, 180, 150), image_format="JPEG", size=64)
     body_image_bytes = sample_image_bytes(color=(90, 90, 90), image_format="PNG", size=64)
-    youcam_client.skin_color_hex = "#B07B4F"
+    youcam_client.face_colors = AUTUMN_DEEP_FACE_COLORS
 
     personal_color_dto = service.analyze_personal_color(
         database_session, user, upload_file(selfie_bytes, "face.jpg"), upload_file(body_image_bytes, "body.png")
@@ -91,11 +66,16 @@ def test_analyze_stores_season_and_keys_and_returns_dto(
 
     stored_user = load_user(database_session, user.id)
     assert stored_user.season == Season.AUTUMN_WARM
+    assert stored_user.season_subtype == SeasonSubtype.DEEP
+    assert stored_user.face_colors == AUTUMN_DEEP_FACE_COLORS.model_dump(by_alias=True)
     assert stored_user.selfie_key.startswith(f"selfies/{user.id}/") and stored_user.selfie_key.endswith(".jpg")
     assert stored_user.body_image_key.startswith(f"body-images/{user.id}/") and stored_user.body_image_key.endswith(".png")
     assert storage.objects == {stored_user.selfie_key: selfie_bytes, stored_user.body_image_key: body_image_bytes}
     assert personal_color_dto.season == Season.AUTUMN_WARM
-    assert personal_color_dto.palette == SEASON_PALETTES[Season.AUTUMN_WARM]
+    assert personal_color_dto.subtype == SeasonSubtype.DEEP
+    assert personal_color_dto.palette == SUBTYPE_PALETTES[(Season.AUTUMN_WARM, SeasonSubtype.DEEP)]
+    assert personal_color_dto.avoid_palette == AVOID_PALETTES[Season.AUTUMN_WARM]
+    assert personal_color_dto.analysis == judge_personal_color(AUTUMN_DEEP_FACE_COLORS).analysis
     assert personal_color_dto.selfie_url == storage.get_url(stored_user.selfie_key)
     assert personal_color_dto.body_image_url == storage.get_url(stored_user.body_image_key)
 
@@ -105,13 +85,13 @@ def test_analyze_sends_only_selfie_url_to_youcam(
 ):
     user = create_user(nickname="fresh")
     analyzed_image_urls: list[str] = []
-    original_analyze_skin_tone = youcam_client.analyze_skin_tone
+    original_analyze_face_colors = youcam_client.analyze_face_colors
 
-    def record_analyze_skin_tone(image_url: str):
+    def record_analyze_face_colors(image_url: str):
         analyzed_image_urls.append(image_url)
-        return original_analyze_skin_tone(image_url)
+        return original_analyze_face_colors(image_url)
 
-    monkeypatch.setattr(youcam_client, "analyze_skin_tone", record_analyze_skin_tone)
+    monkeypatch.setattr(youcam_client, "analyze_face_colors", record_analyze_face_colors)
 
     service.analyze_personal_color(
         database_session, user, upload_file(sample_image_bytes(size=64)), upload_file(sample_image_bytes(size=64))
@@ -161,6 +141,8 @@ def test_face_not_detected_removes_new_uploads_and_keeps_previous_state(
     assert error.value.error_code == ErrorCode.FACE_NOT_DETECTED
     stored_user = load_user(database_session, user.id)
     assert stored_user.season == Season.WINTER_COOL
+    assert stored_user.season_subtype == SeasonSubtype.TRUE
+    assert stored_user.face_colors["skin"] == "#C9A79A"
     assert {stored_user.selfie_key, stored_user.body_image_key} == previous_keys
     assert set(storage.objects) == previous_keys
     assert len(load_fittings(database_session, user.id)) == 1
@@ -172,10 +154,10 @@ def test_external_api_failure_removes_new_uploads(
     user = create_analyzed_user(create_user, database_session, storage)
     previous_keys = {user.selfie_key, user.body_image_key}
 
-    def fail_analyze_skin_tone(image_url: str):
+    def fail_analyze_face_colors(image_url: str):
         raise AppError(ErrorCode.EXTERNAL_API_FAILED)
 
-    monkeypatch.setattr(youcam_client, "analyze_skin_tone", fail_analyze_skin_tone)
+    monkeypatch.setattr(youcam_client, "analyze_face_colors", fail_analyze_face_colors)
 
     with pytest.raises(AppError) as error:
         service.analyze_personal_color(

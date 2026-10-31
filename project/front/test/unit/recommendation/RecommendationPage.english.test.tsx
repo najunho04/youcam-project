@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Season, Style } from '../../../src/common/type'
+import { Season, Style, SeasonSubtype } from '../../../src/common/type'
 import type { RecommendationResponse } from '../../../src/common/type'
 import { RecommendationPage } from '../../../src/feature/recommendation'
 import { tokenStorage } from '../../../src/shared/auth'
@@ -11,6 +11,7 @@ import { stubFetch } from './fetchStub'
 const recommendationResponse: RecommendationResponse = {
   styleTags: ['미니멀', '가을 웜톤'],
   season: Season.AUTUMN_WARM,
+  subtype: SeasonSubtype.DEEP,
   palette: ['#C19A6B'],
   isFallback: false,
   items: [
@@ -18,7 +19,8 @@ const recommendationResponse: RecommendationResponse = {
       product: {
         id: 21,
         title: 'Test knit 21',
-        price: 39000,
+        price: 39.99,
+        currency: 'USD',
         mallName: 'Test mall',
         purchaseUrl: 'https://shopping.test/products/21',
         imageUrl: 'https://image.test/products/21.jpg',
@@ -61,7 +63,7 @@ describe('RecommendationPage 영어 화면', () => {
     expect(reasonItems.map((item) => item.textContent)).toEqual(['Your Minimal pick', 'Autumn Warm colors', 'Casual style'])
     // 시즌 태그 강조는 화면 언어와 상관없이 유지된다
     expect(reasonItems[1]).toHaveClass('chip-accent')
-    expect(within(card).getByText('₩39,000')).toBeInTheDocument()
+    expect(within(card).getByText('$39.99')).toBeInTheDocument()
     expect(within(card).getByRole('button', { name: 'Try it on' })).toBeInTheDocument()
     expect(within(card).getByRole('link', { name: 'Buy now' })).toHaveAttribute('href', 'https://shopping.test/products/21')
   })

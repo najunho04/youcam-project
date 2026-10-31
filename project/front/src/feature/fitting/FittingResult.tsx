@@ -17,7 +17,7 @@ export function ProductSummary({ product, caption }: { product: ProductDto; capt
         <h2 className="fitting-product-title">{product.title}</h2>
         <p className="footnote">{caption ?? product.mallName}</p>
       </div>
-      <p className="fitting-product-price">{messages.price(product.price)}</p>
+      <p className="fitting-product-price">{messages.price(product.price, product.currency)}</p>
     </section>
   )
 }

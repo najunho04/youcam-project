@@ -3,15 +3,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from common.entity import EmbeddingCentroid, Pin, Product, Swipe, WardrobePhoto
-from common.enums import AgeGroup, Category, EmbeddingDomain, Gender, Style
+from common.enums import AgeGroup, Category, EmbeddingDomain, Gender, ProductSource, Style
 
 
 def find_top_products(database_session: Session, gender: Gender, age_group: AgeGroup) -> list[Product]:
-    """후보: 성별·나이대 일치 + TOP. 스와이프는 핀에 하므로 상품을 제외하지 않는다. 쿼리 한 번, id 순."""
+    """후보: eBay 상품 중 성별·나이대 일치 + TOP. 스와이프는 핀에 하므로 상품을 제외하지 않는다. 쿼리 한 번, id 순.
+    한국어 UI용 네이버 상품(source = NAVER)은 최후순위라 지금은 EBAY 고정."""
     return list(
         database_session.scalars(
             select(Product)
-            .where(Product.gender == gender, Product.age_group == age_group, Product.category == Category.TOP)
+            .where(
+                Product.source == ProductSource.EBAY,
+                Product.gender == gender,
+                Product.age_group == age_group,
+                Product.category == Category.TOP,
+            )
             .order_by(Product.id)
         ).all()
     )

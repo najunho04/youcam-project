@@ -1,7 +1,7 @@
 // recommendation 슬라이스 문구 (영어 · 한국어)
-import { Season } from '../../common/type'
+import { Season, SeasonSubtype } from '../../common/type'
 import type { Language } from '../../shared/i18n'
-import { formatPrice } from '../../shared/i18n'
+import { formatMoney } from '../../shared/i18n'
 
 /** 서버가 내려 주는 한국어 시즌 이름. 추천 이유 태그에서 시즌 태그를 찾을 때 쓴다 (화면 언어와 무관). */
 export const SERVER_SEASON_NAMES: Record<Season, string> = {
@@ -54,7 +54,15 @@ const ENGLISH = {
     [Season.WINTER_COOL]: 'Winter Cool',
   } as Record<Season, string>,
   tag: translateTagToEnglish,
-  price: (price: number) => formatPrice(price, 'en'),
+  price: (price: number, currency: string) => formatMoney(price, currency, 'en'),
+  subtypeNames: {
+    [SeasonSubtype.TRUE]: 'True',
+    [SeasonSubtype.LIGHT]: 'Light',
+    [SeasonSubtype.DEEP]: 'Deep',
+    [SeasonSubtype.BRIGHT]: 'Bright',
+    [SeasonSubtype.SOFT]: 'Soft',
+  } as Record<SeasonSubtype, string>,
+  typeName: (seasonName: string, subtypeName: string) => `${seasonName} · ${subtypeName}`,
 }
 
 const KOREAN: typeof ENGLISH = {
@@ -73,7 +81,15 @@ const KOREAN: typeof ENGLISH = {
   buy: '구매하러 가기',
   seasonNames: SERVER_SEASON_NAMES,
   tag: (tag: string) => tag,
-  price: (price: number) => formatPrice(price, 'ko'),
+  price: (price: number, currency: string) => formatMoney(price, currency, 'ko'),
+  subtypeNames: {
+    [SeasonSubtype.TRUE]: '트루',
+    [SeasonSubtype.LIGHT]: '라이트',
+    [SeasonSubtype.DEEP]: '딥',
+    [SeasonSubtype.BRIGHT]: '브라이트',
+    [SeasonSubtype.SOFT]: '소프트',
+  },
+  typeName: (seasonName: string, subtypeName: string) => `${seasonName} · ${subtypeName}`,
 }
 
 export const RECOMMENDATION_MESSAGES: Record<Language, typeof ENGLISH> = { en: ENGLISH, ko: KOREAN }

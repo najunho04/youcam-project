@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ErrorCode, Season } from '../../../src/common/type'
+import { ErrorCode, Season, SeasonSubtype } from '../../../src/common/type'
 import type { PersonalColorDto } from '../../../src/common/type'
 import { PersonalColorPage } from '../../../src/feature/personal_color'
 import { tokenStorage } from '../../../src/shared/auth'
@@ -11,7 +11,20 @@ import { stubFetch } from './fetchStub'
 
 const analyzedResponse: PersonalColorDto = {
   season: Season.SPRING_WARM,
+  subtype: SeasonSubtype.TRUE,
   palette: ['#F7C59F'],
+  avoidPalette: ['#111111'],
+  analysis: {
+    faceColors: {
+      skin: '#B07B4F', lip: '#B5553A', eye: '#3B2414', eyebrow: '#3A2618', hair: '#2E1C10',
+      eyeColorName: 'Brown', hairColorName: null,
+    },
+    warmth: 1.39,
+    depth: -0.83,
+    clarity: 0.33,
+    skinLightness: 55.96,
+    contrast: 43.82,
+  },
   selfieUrl: 'https://storage.test/selfies/1/face.jpg',
   bodyImageUrl: 'https://storage.test/body-images/1/body.jpg',
 }
@@ -52,6 +65,9 @@ describe('PersonalColorPage 영어 화면', () => {
     expect(await screen.findByRole('heading', { name: 'Spring Warm' })).toBeInTheDocument()
     expect(screen.getByText('Bright, warm colors bring your face to life.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+    expect(screen.getByText('True Spring')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Why this result' })).toBeInTheDocument()
+    expect(screen.getByText(/Spring Warm\. Your undertone stands out most, so you are a True type\./)).toBeInTheDocument()
   })
 
   it('얼굴을 인식하지 못하면 영어 재촬영 안내를 보여준다', async () => {

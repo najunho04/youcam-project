@@ -6,7 +6,7 @@ from fastapi import APIRouter, UploadFile
 
 from common.error import AppError, ErrorCode
 from main import app
-from shared.color import SEASON_PALETTES, delta_e, hex_to_lab
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, delta_e, hex_to_lab
 from shared.image import read_upload_image
 from shared.security import CurrentUser
 
@@ -62,4 +62,5 @@ def test_read_upload_image(sample_image_bytes):
 
 def test_color_utils():
     assert delta_e(hex_to_lab("#FFFFFF"), hex_to_lab("#FFFFFF")) == 0
-    assert all(len(palette) == 8 for palette in SEASON_PALETTES.values())
+    assert all(len(palette) == 8 for palette in SUBTYPE_PALETTES.values())
+    assert all(len(palette) == 6 for palette in AVOID_PALETTES.values())

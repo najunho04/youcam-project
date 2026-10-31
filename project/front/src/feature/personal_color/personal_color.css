@@ -49,6 +49,34 @@
 .personal-color-palette .eyebrow { color: var(--season-tint); }
 .personal-color-palette .palette-grid { --swatch-size: clamp(30px, 4.6vh, 44px); grid-template-columns: repeat(4, var(--swatch-size)); gap: clamp(8px, 1.4vh, 14px); justify-content: center; }
 .personal-color-palette .palette-grid li { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.personal-color-palette .palette-grid-avoid { grid-template-columns: repeat(6, calc(var(--swatch-size) * 0.75)); }
+.palette-grid-avoid li { position: relative; opacity: 0.75; }
+.palette-grid-avoid li::after { content: ''; position: absolute; left: 50%; top: 10%; width: 1.5px; height: 80%; background: rgba(255, 255, 255, 0.85); rotate: 45deg; }
+.season-hero-subtype { margin: 0; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--season-tint); }
+
+/* 판정 근거: 얼굴 색 → 3축 막대 → 수치 → 판정 문장 */
+.personal-color-basis { display: grid; gap: 14px; width: min(560px, 100%); padding: 24px; border-radius: var(--radius-large); background: rgba(255, 255, 255, 0.04); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); text-align: left; }
+.personal-color-basis .eyebrow { margin: 0; color: var(--season-tint); }
+.personal-color-basis .footnote { margin: 0; }
+.face-color-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.face-color-list li { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.face-color-chip { width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.face-color-name { font-size: 12px; color: var(--color-body); }
+.face-color-value { font-size: 11px; color: var(--color-muted, rgba(255, 255, 255, 0.55)); font-variant-numeric: tabular-nums; }
+.axis-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.axis-list li { display: grid; grid-template-columns: 72px 56px 1fr 56px 44px; align-items: center; gap: 8px; font-size: 12px; }
+.axis-label { color: var(--color-body); }
+.axis-end { text-align: center; color: rgba(255, 255, 255, 0.45); }
+.axis-end-active { color: var(--season-tint); font-weight: 600; }
+.axis-track { position: relative; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); }
+.axis-track::before { content: ''; position: absolute; left: 50%; top: -3px; width: 1px; height: 12px; background: rgba(255, 255, 255, 0.35); }
+.axis-fill { position: absolute; top: 0; height: 100%; border-radius: 3px; background: var(--season-tint); }
+.axis-score { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-body); }
+.basis-metrics { display: flex; gap: 24px; margin: 0; }
+.basis-metrics div { display: grid; gap: 2px; }
+.basis-metrics dt { font-size: 12px; color: rgba(255, 255, 255, 0.55); }
+.basis-metrics dd { margin: 0; font-size: 18px; font-variant-numeric: tabular-nums; }
+.basis-verdict { margin: 0; font-size: 14px; line-height: 1.5; color: var(--color-body); }
 
 /* 가이드 촬영 창(얼굴 타원 · 상반신 실루엣): 왼쪽 4:5 카메라 · 오른쪽 안내와 체크리스트. 미리보기와 촬영 사진은 거울 모습이다. */
 .capture-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 32px; background: rgba(5, 5, 5, 0.86); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); animation: capture-fade 220ms var(--ease-out) both; }

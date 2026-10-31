@@ -39,11 +39,6 @@ AVOID_PALETTES: dict[Season, list[str]] = {
     Season.WINTER_COOL: ["#FFB38A", "#C19A6B", "#D4A017", "#FF7A00", "#D8C3A5", "#8F8650"],
 }
 
-# TODO(슬라이스 개편 후 삭제): auth·recommendation 이 아직 import 한다. 새 코드는 SUBTYPE_PALETTES 를 쓴다
-SEASON_PALETTES: dict[Season, list[str]] = {
-    season: SUBTYPE_PALETTES[(season, SeasonSubtype.TRUE)] for season in Season
-}
-
 # 판정 축 기준값 (0 이 경계가 되도록 기준점을 빼고 스케일로 나눈다). 기획 조정 대상
 SKIN_HUE_REFERENCE, SKIN_HUE_SCALE = 58.0, 10.0  # 피부 색상각(도). 클수록 노란 쪽 = 웜
 LIP_HUE_REFERENCE, LIP_HUE_SCALE = 25.0, 20.0  # 입술 색상각(도). 클수록 코랄 쪽 = 웜

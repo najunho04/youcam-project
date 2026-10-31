@@ -28,6 +28,7 @@ function fittingOf(status: FittingStatus): FittingDto {
       id: PRODUCT_ID,
       title: '테스트 니트 21',
       price: 39000,
+      currency: 'KRW',
       mallName: '테스트몰',
       purchaseUrl: 'https://shopping.test/products/21',
       imageUrl: 'https://image.test/products/21.jpg',

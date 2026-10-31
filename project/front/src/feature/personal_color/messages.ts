@@ -1,9 +1,59 @@
 // personal_color 슬라이스 문구 (영어 · 한국어)
-import { Season } from '../../common/type'
+import { Season, SeasonSubtype } from '../../common/type'
 import { FaceGuideStatus } from './faceGuide'
 import type { FaceGuideCheckName } from './faceGuide'
 import { UpperBodyGuideStatus } from './upperBodyGuide'
 import type { UpperBodyGuideCheckName } from './upperBodyGuide'
+
+export type FaceColorPart = 'skin' | 'lip' | 'eye' | 'eyebrow' | 'hair'
+export type AxisName = 'warmth' | 'depth' | 'clarity'
+
+const ENGLISH_SEASON_NAMES: Record<Season, string> = {
+  [Season.SPRING_WARM]: 'Spring Warm',
+  [Season.SUMMER_COOL]: 'Summer Cool',
+  [Season.AUTUMN_WARM]: 'Autumn Warm',
+  [Season.WINTER_COOL]: 'Winter Cool',
+}
+const ENGLISH_SEASON_WORDS: Record<Season, string> = {
+  [Season.SPRING_WARM]: 'Spring',
+  [Season.SUMMER_COOL]: 'Summer',
+  [Season.AUTUMN_WARM]: 'Autumn',
+  [Season.WINTER_COOL]: 'Winter',
+}
+const ENGLISH_SUBTYPE_NAMES: Record<SeasonSubtype, string> = {
+  [SeasonSubtype.TRUE]: 'True',
+  [SeasonSubtype.LIGHT]: 'Light',
+  [SeasonSubtype.DEEP]: 'Deep',
+  [SeasonSubtype.BRIGHT]: 'Bright',
+  [SeasonSubtype.SOFT]: 'Soft',
+}
+const ENGLISH_SUBTYPE_TRAITS: Record<SeasonSubtype, string> = {
+  [SeasonSubtype.TRUE]: 'Undertone',
+  [SeasonSubtype.LIGHT]: 'Lightness',
+  [SeasonSubtype.DEEP]: 'Depth',
+  [SeasonSubtype.BRIGHT]: 'Clarity',
+  [SeasonSubtype.SOFT]: 'Softness',
+}
+const KOREAN_SEASON_NAMES: Record<Season, string> = {
+  [Season.SPRING_WARM]: '봄 웜톤',
+  [Season.SUMMER_COOL]: '여름 쿨톤',
+  [Season.AUTUMN_WARM]: '가을 웜톤',
+  [Season.WINTER_COOL]: '겨울 쿨톤',
+}
+const KOREAN_SUBTYPE_NAMES: Record<SeasonSubtype, string> = {
+  [SeasonSubtype.TRUE]: '트루',
+  [SeasonSubtype.LIGHT]: '라이트',
+  [SeasonSubtype.DEEP]: '딥',
+  [SeasonSubtype.BRIGHT]: '브라이트',
+  [SeasonSubtype.SOFT]: '소프트',
+}
+const KOREAN_SUBTYPE_TRAITS: Record<SeasonSubtype, string> = {
+  [SeasonSubtype.TRUE]: '웜·쿨 성향',
+  [SeasonSubtype.LIGHT]: '밝기',
+  [SeasonSubtype.DEEP]: '깊이',
+  [SeasonSubtype.BRIGHT]: '선명함',
+  [SeasonSubtype.SOFT]: '부드러움',
+}
 
 const ENGLISH = {
   title: 'Two photos is all it takes',
@@ -99,6 +149,28 @@ const ENGLISH = {
     [Season.AUTUMN_WARM]: 'Deep, warm colors light up your face.',
     [Season.WINTER_COOL]: 'Vivid, cool colors sharpen your look.',
   } as Record<Season, string>,
+  // 12유형 이름. 영어는 "Deep Autumn", 트루는 "True Autumn"
+  typeName: (season: Season, subtype: SeasonSubtype) => `${ENGLISH_SUBTYPE_NAMES[subtype]} ${ENGLISH_SEASON_WORDS[season]}`,
+  avoidColors: 'Colors to avoid',
+  avoidPalette: 'Avoid palette',
+  avoidNote: 'Items close to these colors rank lower in your recommendations.',
+  basisHeading: 'Why this result',
+  basisLede: 'Read from the five colors YouCam found on your face.',
+  faceColors: 'Face colors',
+  faceColorNames: { skin: 'Skin', lip: 'Lips', eye: 'Eyes', eyebrow: 'Brows', hair: 'Hair' } as Record<FaceColorPart, string>,
+  axes: {
+    warmth: { label: 'Undertone', negative: 'Cool', positive: 'Warm' },
+    depth: { label: 'Depth', negative: 'Light', positive: 'Deep' },
+    clarity: { label: 'Clarity', negative: 'Soft', positive: 'Bright' },
+  } as Record<AxisName, { label: string; negative: string; positive: string }>,
+  skinLightness: 'Skin lightness (L*)',
+  contrast: 'Contrast with hair, brows, eyes',
+  verdict: (warmth: number, depth: number, season: Season, subtype: SeasonSubtype) =>
+    `${warmth >= 0 ? 'Yellow-leaning skin and lips read warm' : 'Pink-leaning skin and lips read cool'}, ` +
+    `${depth >= 0 ? 'and strong contrast with your hair reads deep' : 'and light skin with soft contrast reads light'} → ${ENGLISH_SEASON_NAMES[season]}. ` +
+    (subtype === SeasonSubtype.TRUE
+      ? 'Your undertone stands out most, so you are a True type.'
+      : `${ENGLISH_SUBTYPE_TRAITS[subtype]} stands out most, so you are ${ENGLISH_SUBTYPE_NAMES[subtype]}.`),
 }
 
 const KOREAN: typeof ENGLISH = {
@@ -195,6 +267,27 @@ const KOREAN: typeof ENGLISH = {
     [Season.AUTUMN_WARM]: '깊고 따뜻한 색이 얼굴을 환하게 만들어요.',
     [Season.WINTER_COOL]: '선명하고 차가운 색이 인상을 또렷하게 해 줘요.',
   },
+  typeName: (season: Season, subtype: SeasonSubtype) => `${KOREAN_SEASON_NAMES[season]} · ${KOREAN_SUBTYPE_NAMES[subtype]}`,
+  avoidColors: '피해야 할 색',
+  avoidPalette: '피해야 할 팔레트',
+  avoidNote: '이 색과 가까운 상품은 추천에서 뒤로 밀려요.',
+  basisHeading: '판정 근거',
+  basisLede: 'YouCam 이 얼굴에서 찾은 색 5가지로 판정했어요.',
+  faceColors: '얼굴 색',
+  faceColorNames: { skin: '피부', lip: '입술', eye: '눈', eyebrow: '눈썹', hair: '머리' },
+  axes: {
+    warmth: { label: '웜 · 쿨', negative: '쿨', positive: '웜' },
+    depth: { label: '명도', negative: '라이트', positive: '딥' },
+    clarity: { label: '선명도', negative: '소프트', positive: '브라이트' },
+  },
+  skinLightness: '피부 명도 (L*)',
+  contrast: '머리·눈썹·눈과의 대비',
+  verdict: (warmth: number, depth: number, season: Season, subtype: SeasonSubtype) =>
+    `${warmth >= 0 ? '노란 기가 도는 피부와 입술로 웜' : '핑크 기가 도는 피부와 입술로 쿨'}, ` +
+    `${depth >= 0 ? '피부와 머리색 대비가 커서 딥' : '밝은 피부에 대비가 부드러워 라이트'} → ${KOREAN_SEASON_NAMES[season]}. ` +
+    (subtype === SeasonSubtype.TRUE
+      ? '가장 두드러진 특징: 웜·쿨 성향 → 트루'
+      : `가장 두드러진 특징: ${KOREAN_SUBTYPE_TRAITS[subtype]} → ${KOREAN_SUBTYPE_NAMES[subtype]}`),
 }
 
 export const PERSONAL_COLOR_MESSAGES = { en: ENGLISH, ko: KOREAN }

@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 
 from common.dto import ProductDto, RecommendationItem, RecommendationResponse
 from common.entity import EMBEDDING_DIMENSION, User
-from common.enums import EmbeddingDomain, Season, Style
+from common.enums import EmbeddingDomain, Season, SeasonSubtype, Style
 from common.error import AppError, ErrorCode
 from feature.recommendation import repository
-from shared.color import SEASON_PALETTES, palette_lab
+from shared.color import SUBTYPE_PALETTES, avoid_palette_lab, palette_lab
 
 MAXIMUM_ITEM_COUNT = 6
 MINIMUM_LIKED_COUNT = 3
@@ -23,6 +23,8 @@ COLOR_WEIGHT = 0.3
 NEUTRAL_TASTE_SCORE = 0.5
 COLOR_DISTANCE_SCALE = 50
 SEASON_COLOR_THRESHOLD = 0.7
+AVOID_DISTANCE_THRESHOLD = 15  # 피해야 할 팔레트와 ΔE 가 이보다 작으면 감점
+AVOID_PENALTY_MULTIPLIER = 0.5
 MAXIMUM_PREFERRED_STYLE_COUNT = 2
 
 STYLE_KOREAN_NAMES: dict[Style, str] = {
@@ -93,14 +95,18 @@ def compute_taste_scores(taste_vector: np.ndarray, candidate_embeddings: np.ndar
     return 0.5 * (1 + _vectorized_erf(z_scores / math.sqrt(2)))
 
 
-def compute_color_scores(candidate_colors_lab: np.ndarray, season: Season) -> np.ndarray:
-    """max(0, 1 − ΔE / 50). ΔE 는 시즌 팔레트 중 가장 가까운 색까지의 CIE76 거리."""
+def _nearest_distances(colors: np.ndarray, palette_colors: list) -> np.ndarray:
+    palette = np.asarray(palette_colors, dtype=float)
+    return np.linalg.norm(colors[:, np.newaxis, :] - palette[np.newaxis, :, :], axis=2).min(axis=1, initial=np.inf)
+
+
+def compute_color_scores(candidate_colors_lab: np.ndarray, season: Season, subtype: SeasonSubtype) -> np.ndarray:
+    """max(0, 1 − ΔE / 50) × 감점. ΔE 는 12유형 팔레트 중 가장 가까운 색까지의 CIE76 거리.
+    피해야 할 팔레트 중 가장 가까운 색과 ΔE < 15 이면 × 0.5."""
     colors = np.asarray(candidate_colors_lab, dtype=float).reshape(-1, 3)
-    palette = np.asarray(palette_lab(season), dtype=float)
-    nearest_distances = np.linalg.norm(colors[:, np.newaxis, :] - palette[np.newaxis, :, :], axis=2).min(
-        axis=1, initial=np.inf
-    )
-    return np.maximum(0.0, 1 - nearest_distances / COLOR_DISTANCE_SCALE)
+    base_scores = np.maximum(0.0, 1 - _nearest_distances(colors, palette_lab(season, subtype)) / COLOR_DISTANCE_SCALE)
+    is_close_to_avoid = _nearest_distances(colors, avoid_palette_lab(season)) < AVOID_DISTANCE_THRESHOLD
+    return np.where(is_close_to_avoid, base_scores * AVOID_PENALTY_MULTIPLIER, base_scores)
 
 
 def combine_scores(taste_scores: np.ndarray, color_scores: np.ndarray) -> np.ndarray:
@@ -141,9 +147,9 @@ def get_recommendations(database_session: Session, user: User) -> Recommendation
     """요청마다 계산하고 저장하지 않는다. 좋아요 < 3 이면 폴백 (tasteScore = 0, score = colorScore)."""
     if user.age_group is None or user.gender is None:
         raise AppError(ErrorCode.PROFILE_REQUIRED, "나이대와 성별을 먼저 입력해 주세요")
-    if user.season is None:
+    if user.season is None or user.season_subtype is None:
         raise AppError(ErrorCode.PERSONAL_COLOR_REQUIRED, "퍼스널컬러 진단을 먼저 해 주세요")
-    season = user.season
+    season, subtype = user.season, user.season_subtype
 
     swiped_pins = repository.find_swiped_pins(database_session, user.id)
     liked_styles = [style for style, _, liked in swiped_pins if liked]
@@ -151,7 +157,9 @@ def get_recommendations(database_session: Session, user: User) -> Recommendation
     is_fallback = len(liked_styles) < MINIMUM_LIKED_COUNT
 
     candidates = repository.find_top_products(database_session, user.gender, user.age_group)
-    color_scores = compute_color_scores(np.asarray([product.color_lab for product in candidates], dtype=float), season)
+    color_scores = compute_color_scores(
+        np.asarray([product.color_lab for product in candidates], dtype=float), season, subtype
+    )
     if is_fallback:
         taste_scores = np.zeros(len(candidates))
         scores = color_scores
@@ -187,7 +195,8 @@ def get_recommendations(database_session: Session, user: User) -> Recommendation
     return RecommendationResponse(
         style_tags=build_style_tags(preferred_styles, season),
         season=season,
-        palette=SEASON_PALETTES[season],
+        subtype=subtype,
+        palette=SUBTYPE_PALETTES[(season, subtype)],
         is_fallback=is_fallback,
         items=items,
     )

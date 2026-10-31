@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ErrorCode, Season } from '../../../src/common/type'
+import { ErrorCode, Season, SeasonSubtype } from '../../../src/common/type'
 import type { PersonalColorDto } from '../../../src/common/type'
 import { PersonalColorPage } from '../../../src/feature/personal_color'
 import { tokenStorage } from '../../../src/shared/auth'
@@ -16,7 +16,20 @@ afterEach(() => setLanguage('en'))
 
 const analyzedResponse: PersonalColorDto = {
   season: Season.AUTUMN_WARM,
+  subtype: SeasonSubtype.DEEP,
   palette: ['#C19A6B', '#D8C3A5', '#8F8650'],
+  avoidPalette: ['#F7D1E6', '#E0218A'],
+  analysis: {
+    faceColors: {
+      skin: '#B07B4F', lip: '#B5553A', eye: '#3B2414', eyebrow: '#3A2618', hair: '#2E1C10',
+      eyeColorName: 'Brown', hairColorName: null,
+    },
+    warmth: 0.68,
+    depth: 0.79,
+    clarity: 2.06,
+    skinLightness: 55.96,
+    contrast: 43.82,
+  },
   selfieUrl: 'https://storage.test/selfies/1/face.jpg',
   bodyImageUrl: 'https://storage.test/body-images/1/body.jpg',
 }
@@ -156,6 +169,37 @@ describe('PersonalColorPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '다음' }))
     expect(await screen.findByText('스와이프 화면')).toBeInTheDocument()
+  })
+
+  it('세부 유형과 피해야 할 색을 보여준다', async () => {
+    stubFetch([{ status: 200, body: analyzedResponse }])
+    renderPersonalColorPage()
+
+    await selectBothPhotos()
+    await userEvent.click(analyzeButton())
+
+    expect(await screen.findByText('가을 웜톤 · 딥')).toBeInTheDocument()
+    const avoidPalette = screen.getByRole('list', { name: '피해야 할 팔레트' })
+    const avoidChips = within(avoidPalette).getAllByRole('listitem')
+    expect(avoidChips.map((chip) => chip.getAttribute('title'))).toEqual(analyzedResponse.avoidPalette)
+  })
+
+  it('하단에 판정 근거로 얼굴 색 5개, 3축 점수, 피부 명도·대비, 판정 문장을 보여준다', async () => {
+    stubFetch([{ status: 200, body: analyzedResponse }])
+    renderPersonalColorPage()
+
+    await selectBothPhotos()
+    await userEvent.click(analyzeButton())
+
+    expect(await screen.findByRole('heading', { name: '판정 근거' })).toBeInTheDocument()
+    const faceColors = within(screen.getByRole('list', { name: '얼굴 색' })).getAllByRole('listitem')
+    expect(faceColors.map((item) => item.textContent)).toEqual(['피부#B07B4F', '입술#B5553A', '눈Brown', '눈썹#3A2618', '머리#2E1C10'])
+    expect(screen.getByLabelText('웜 · 쿨 +0.68')).toBeInTheDocument()
+    expect(screen.getByLabelText('명도 +0.79')).toBeInTheDocument()
+    expect(screen.getByLabelText('선명도 +2.06')).toBeInTheDocument()
+    expect(screen.getByText('56.0')).toBeInTheDocument()
+    expect(screen.getByText('43.8')).toBeInTheDocument()
+    expect(screen.getByText(/가을 웜톤\. 가장 두드러진 특징: 깊이 → 딥/)).toBeInTheDocument()
   })
 
   it('얼굴을 인식하지 못하면 얼굴 사진 재촬영 안내와 가이드를 다시 보여준다', async () => {

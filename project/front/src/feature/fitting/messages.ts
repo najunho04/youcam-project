@@ -1,6 +1,6 @@
 // fitting 슬라이스 문구 (영어 · 한국어)
 import type { Language } from '../../shared/i18n'
-import { formatPrice } from '../../shared/i18n'
+import { formatMoney } from '../../shared/i18n'
 
 const ENGLISH = {
   title: 'Virtual try-on',
@@ -17,7 +17,7 @@ const ENGLISH = {
   original: 'Original',
   result: 'Try-on result',
   compare: 'Compare original and try-on result',
-  price: (price: number) => formatPrice(price, 'en'),
+  price: (price: number, currency: string) => formatMoney(price, currency, 'en'),
 }
 
 const KOREAN: typeof ENGLISH = {
@@ -35,7 +35,7 @@ const KOREAN: typeof ENGLISH = {
   original: '원본',
   result: '피팅 결과',
   compare: '원본과 피팅 결과 비교',
-  price: (price: number) => formatPrice(price, 'ko'),
+  price: (price: number, currency: string) => formatMoney(price, currency, 'ko'),
 }
 
 export const FITTING_MESSAGES: Record<Language, typeof ENGLISH> = { en: ENGLISH, ko: KOREAN }

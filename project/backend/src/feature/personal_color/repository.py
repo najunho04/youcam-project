@@ -1,15 +1,24 @@
-"""personal_color 슬라이스 DB 접근. users 테이블은 season·selfie_key·body_image_key 만 쓰고, fittings 는 사용자 행 삭제만 한다."""
+"""personal_color 슬라이스 DB 접근. users 테이블은 season·season_subtype·face_colors·selfie_key·body_image_key 만 쓰고,
+fittings 는 사용자 행 삭제만 한다."""
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from common.entity import Fitting, User
-from common.enums import Season
+from common.enums import Season, SeasonSubtype
 
 
 def update_personal_color(
-    database_session: Session, user: User, season: Season, selfie_key: str, body_image_key: str
+    database_session: Session,
+    user: User,
+    season: Season,
+    season_subtype: SeasonSubtype,
+    face_colors: dict,
+    selfie_key: str,
+    body_image_key: str,
 ) -> User:
     user.season = season
+    user.season_subtype = season_subtype
+    user.face_colors = face_colors
     user.selfie_key = selfie_key
     user.body_image_key = body_image_key
     database_session.flush()

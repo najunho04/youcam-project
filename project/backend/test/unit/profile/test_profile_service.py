@@ -2,11 +2,13 @@
 import pytest
 from sqlalchemy import select
 
-from common.dto import ProfileUpdateRequest
+from common.dto import FaceColorsDto, ProfileUpdateRequest
 from common.entity import User
-from common.enums import AgeGroup, Gender, Season
+from common.enums import AgeGroup, Gender, Season, SeasonSubtype
 from feature.profile import service
-from shared.color import SEASON_PALETTES
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, judge_personal_color
+
+FACE_COLORS = {"skin": "#C9A79A", "lip": "#A8354F", "eye": "#1E1714", "eyebrow": "#1A1514", "hair": "#141212", "eyeColorName": None, "hairColorName": None}
 
 
 def load_user(database_session, user_id: int) -> User:
@@ -62,6 +64,8 @@ def test_to_user_dto_fills_personal_color_when_season_selfie_and_body_image_exis
         age_group=AgeGroup.THIRTIES,
         gender=Gender.MALE,
         season=Season.WINTER_COOL,
+        season_subtype=SeasonSubtype.DEEP,
+        face_colors=FACE_COLORS,
         selfie_key="selfies/1/face.jpg",
         body_image_key="body-images/1/body.jpg",
     )
@@ -71,14 +75,20 @@ def test_to_user_dto_fills_personal_color_when_season_selfie_and_body_image_exis
     assert user_dto.nickname == "complete"
     assert user_dto.personal_color is not None
     assert user_dto.personal_color.season == Season.WINTER_COOL
-    assert user_dto.personal_color.palette == SEASON_PALETTES[Season.WINTER_COOL]
+    assert user_dto.personal_color.subtype == SeasonSubtype.DEEP
+    assert user_dto.personal_color.palette == SUBTYPE_PALETTES[(Season.WINTER_COOL, SeasonSubtype.DEEP)]
+    assert user_dto.personal_color.avoid_palette == AVOID_PALETTES[Season.WINTER_COOL]
+    assert user_dto.personal_color.analysis == judge_personal_color(FaceColorsDto.model_validate(FACE_COLORS)).analysis
     assert user_dto.personal_color.selfie_url == storage.get_url("selfies/1/face.jpg")
     assert user_dto.personal_color.body_image_url == storage.get_url("body-images/1/body.jpg")
 
 
-@pytest.mark.parametrize("missing_column", ["season", "selfie_key", "body_image_key"])
+@pytest.mark.parametrize("missing_column", ["season", "season_subtype", "face_colors", "selfie_key", "body_image_key"])
 def test_to_user_dto_leaves_personal_color_null_when_any_column_missing(create_user, missing_column):
-    columns = dict(season=Season.SPRING_WARM, selfie_key="selfies/1/face.jpg", body_image_key="body-images/1/body.jpg")
+    columns = dict(
+        season=Season.SPRING_WARM, season_subtype=SeasonSubtype.TRUE, face_colors=FACE_COLORS,
+        selfie_key="selfies/1/face.jpg", body_image_key="body-images/1/body.jpg",
+    )
     columns[missing_column] = None
     user = create_user(nickname="partial", **columns)
 

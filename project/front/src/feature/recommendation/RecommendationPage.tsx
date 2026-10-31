@@ -42,7 +42,7 @@ function RecommendationSummary({ recommendation }: { recommendation: Recommendat
           </ul>
         </div>
         <div className="recommendation-summary-row">
-          <p className="eyebrow">{seasonName}</p>
+          <p className="eyebrow">{messages.typeName(seasonName, messages.subtypeNames[recommendation.subtype])}</p>
           <ul aria-label={messages.palette(seasonName)} className="recommendation-palette">
             {recommendation.palette.map((hexColor) => (
               <li key={hexColor} title={hexColor} style={{ background: hexColor }} />

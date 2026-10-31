@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ErrorCode, Season, Style } from '../../../src/common/type'
+import { ErrorCode, Season, Style, SeasonSubtype } from '../../../src/common/type'
 import type { RecommendationItem, RecommendationResponse } from '../../../src/common/type'
 import { RecommendationPage } from '../../../src/feature/recommendation'
 import { tokenStorage } from '../../../src/shared/auth'
@@ -20,6 +20,7 @@ function recommendationItem(productId: number, reasonTags: string[]): Recommenda
       id: productId,
       title: `테스트 니트 ${productId}`,
       price: 39000 + productId,
+      currency: 'KRW',
       mallName: `테스트몰 ${productId}`,
       purchaseUrl: `https://shopping.test/products/${productId}`,
       imageUrl: `https://image.test/products/${productId}.jpg`,
@@ -35,6 +36,7 @@ function recommendationItem(productId: number, reasonTags: string[]): Recommenda
 const recommendationResponse: RecommendationResponse = {
   styleTags: ['러블리', '미니멀', '가을 웜톤'],
   season: Season.AUTUMN_WARM,
+  subtype: SeasonSubtype.DEEP,
   palette: ['#C19A6B', '#D8C3A5'],
   isFallback: false,
   items: [

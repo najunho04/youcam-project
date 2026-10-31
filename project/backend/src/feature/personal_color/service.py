@@ -4,9 +4,8 @@ from sqlalchemy.orm import Session
 
 from common.dto import PersonalColorDto
 from common.entity import User
-from common.enums import Season
 from feature.personal_color import repository
-from shared.color import SEASON_PALETTES, hex_to_lab
+from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, judge_personal_color
 from shared.image import read_upload_image
 from shared.storage import get_storage, new_object_key
 from shared.youcam import get_youcam_client
@@ -14,24 +13,10 @@ from shared.youcam import get_youcam_client
 _SELFIE_KEY_PREFIX = "selfies"
 _BODY_IMAGE_KEY_PREFIX = "body-images"
 
-# 피부색 Lab 2축 판정 기준값. b* 이상이면 웜, L* 이상이면 밝음 (기획 조정 대상)
-WARM_YELLOW_BLUE_THRESHOLD = 18
-BRIGHT_LIGHTNESS_THRESHOLD = 70
-
-
-def determine_season(skin_color_hex: str) -> Season:
-    lightness, _, yellow_blue = hex_to_lab(skin_color_hex)
-    is_warm = yellow_blue >= WARM_YELLOW_BLUE_THRESHOLD
-    is_bright = lightness >= BRIGHT_LIGHTNESS_THRESHOLD
-    if is_bright:
-        return Season.SPRING_WARM if is_warm else Season.SUMMER_COOL
-    return Season.AUTUMN_WARM if is_warm else Season.WINTER_COOL
-
-
 def analyze_personal_color(
     database_session: Session, user: User, selfie_file: UploadFile, body_image_file: UploadFile
 ) -> PersonalColorDto:
-    """검증 → 두 사진 업로드 → 얼굴 사진 피부톤 분석 → 시즌 판정 → 저장·이전 사진 삭제·피팅 무효화.
+    """검증 → 두 사진 업로드 → 얼굴 사진 얼굴 색 분석 → 12유형 판정 → 저장·이전 사진 삭제·피팅 무효화.
     실패하면 이번에 올린 파일만 지우고 users·fittings·기존 파일은 그대로 둔다."""
     selfie_image = read_upload_image(selfie_file)
     body_image = read_upload_image(body_image_file)
@@ -47,10 +32,18 @@ def analyze_personal_color(
         storage.upload(body_image_key, body_image.data, body_image.content_type)
         uploaded_keys.append(body_image_key)
 
-        skin_tone = get_youcam_client().analyze_skin_tone(storage.get_url(selfie_key))
-        season = determine_season(skin_tone.skin_color_hex)
+        face_colors = get_youcam_client().analyze_face_colors(storage.get_url(selfie_key))
+        judgment = judge_personal_color(face_colors)
 
-        repository.update_personal_color(database_session, user, season, selfie_key, body_image_key)
+        repository.update_personal_color(
+            database_session,
+            user,
+            judgment.season,
+            judgment.subtype,
+            face_colors.model_dump(by_alias=True),
+            selfie_key,
+            body_image_key,
+        )
         repository.delete_fittings_by_user(database_session, user.id)
     except Exception:
         for uploaded_key in uploaded_keys:
@@ -61,8 +54,11 @@ def analyze_personal_color(
         storage.delete(previous_key)
 
     return PersonalColorDto(
-        season=season,
-        palette=SEASON_PALETTES[season],
+        season=judgment.season,
+        subtype=judgment.subtype,
+        palette=SUBTYPE_PALETTES[(judgment.season, judgment.subtype)],
+        avoid_palette=AVOID_PALETTES[judgment.season],
+        analysis=judgment.analysis,
         selfie_url=storage.get_url(selfie_key),
         body_image_url=storage.get_url(body_image_key),
     )

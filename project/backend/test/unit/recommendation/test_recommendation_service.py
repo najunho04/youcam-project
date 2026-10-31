@@ -5,10 +5,10 @@ import numpy as np
 import pytest
 
 from common.entity import EMBEDDING_DIMENSION
-from common.enums import AgeGroup, Gender, Season, Style
+from common.enums import AgeGroup, Gender, Season, SeasonSubtype, Style
 from common.error import AppError, ErrorCode
 from feature.recommendation import service
-from shared.color import delta_e, palette_lab
+from shared.color import avoid_palette_lab, delta_e, hex_to_lab, palette_lab
 
 TOLERANCE = 1e-9
 
@@ -151,12 +151,12 @@ def test_compute_taste_scores_return_empty_for_no_candidates():
 
 # ---- compute_color_scores ----
 def test_compute_color_scores_use_nearest_palette_color_and_clip_at_zero():
-    season = Season.AUTUMN_WARM
-    palette = palette_lab(season)
+    season, subtype = Season.AUTUMN_WARM, SeasonSubtype.DEEP
+    palette = palette_lab(season, subtype)
     near_color = [palette[3][0] + 10, palette[3][1], palette[3][2]]
     candidate_colors = np.array([list(palette[0]), near_color, [100.0, -100.0, -100.0]])
 
-    color_scores = service.compute_color_scores(candidate_colors, season)
+    color_scores = service.compute_color_scores(candidate_colors, season, subtype)
 
     near_distance = min(delta_e(tuple(near_color), color) for color in palette)
     far_distance = min(delta_e((100.0, -100.0, -100.0), color) for color in palette)
@@ -165,8 +165,33 @@ def test_compute_color_scores_use_nearest_palette_color_and_clip_at_zero():
     assert color_scores == pytest.approx([1.0, 1 - near_distance / 50, 0.0], abs=TOLERANCE)
 
 
+def test_compute_color_scores_use_subtype_palette():
+    # 같은 가을이라도 세부 유형마다 팔레트가 달라 점수가 다르다
+    deep_color = list(palette_lab(Season.AUTUMN_WARM, SeasonSubtype.DEEP)[0])
+
+    deep_score = service.compute_color_scores(np.array([deep_color]), Season.AUTUMN_WARM, SeasonSubtype.DEEP)[0]
+    soft_score = service.compute_color_scores(np.array([deep_color]), Season.AUTUMN_WARM, SeasonSubtype.SOFT)[0]
+
+    assert deep_score == pytest.approx(1.0, abs=TOLERANCE)
+    assert soft_score < deep_score
+
+
+@pytest.mark.parametrize(("avoid_offset", "expected_penalty"), [(0.0, 0.5), (14.9, 0.5), (15.0, 1.0), (30.0, 1.0)])
+def test_compute_color_scores_halve_score_when_avoid_color_is_closer_than_15(avoid_offset, expected_penalty):
+    season, subtype = Season.AUTUMN_WARM, SeasonSubtype.TRUE
+    fuchsia = hex_to_lab("#E0218A")  # 가을 피해야 할 색
+    candidate = [fuchsia[0] + avoid_offset, fuchsia[1], fuchsia[2]]
+    nearest_palette_distance = min(delta_e(tuple(candidate), color) for color in palette_lab(season, subtype))
+    nearest_avoid_distance = min(delta_e(tuple(candidate), color) for color in avoid_palette_lab(season))
+    assert nearest_avoid_distance == pytest.approx(avoid_offset, abs=1e-9)
+
+    (color_score,) = service.compute_color_scores(np.array([candidate]), season, subtype)
+
+    assert color_score == pytest.approx(max(0.0, 1 - nearest_palette_distance / 50) * expected_penalty, abs=TOLERANCE)
+
+
 def test_compute_color_scores_return_empty_for_no_candidates():
-    assert len(service.compute_color_scores(np.empty((0, 3)), Season.SPRING_WARM)) == 0
+    assert len(service.compute_color_scores(np.empty((0, 3)), Season.SPRING_WARM, SeasonSubtype.TRUE)) == 0
 
 
 # ---- combine_scores ----
@@ -227,11 +252,12 @@ def test_build_reason_tags_fall_back_to_product_style():
 
 # ---- 사전 조건 ----
 class StubUser:
-    def __init__(self, age_group, gender, season) -> None:
+    def __init__(self, age_group, gender, season, season_subtype=SeasonSubtype.TRUE) -> None:
         self.id = 1
         self.age_group = age_group
         self.gender = gender
         self.season = season
+        self.season_subtype = season_subtype if season is not None else None
 
 
 @pytest.mark.parametrize(
@@ -240,6 +266,7 @@ class StubUser:
         (StubUser(None, Gender.FEMALE, Season.AUTUMN_WARM), ErrorCode.PROFILE_REQUIRED),
         (StubUser(AgeGroup.TWENTIES, None, None), ErrorCode.PROFILE_REQUIRED),
         (StubUser(AgeGroup.TWENTIES, Gender.FEMALE, None), ErrorCode.PERSONAL_COLOR_REQUIRED),
+        (StubUser(AgeGroup.TWENTIES, Gender.FEMALE, Season.AUTUMN_WARM, None), ErrorCode.PERSONAL_COLOR_REQUIRED),
     ],
 )
 def test_get_recommendations_rejects_missing_profile_before_personal_color(user, error_code):

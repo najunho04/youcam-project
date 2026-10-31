@@ -31,7 +31,7 @@ export function RecommendationCard({
           <p className="recommendation-card-mall">{product.mallName}</p>
           <h2 className="recommendation-card-title">{product.title}</h2>
         </div>
-        <p className="price">{messages.price(product.price)}</p>
+        <p className="price">{messages.price(product.price, product.currency)}</p>
         <ul aria-label={messages.reasons} className="chip-list">
           {reasonTags.map((reasonTag) => (
             <li key={reasonTag} className={`chip${reasonTag.includes(highlightedReason) ? ' chip-accent' : ''}`}>

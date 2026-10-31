@@ -13,6 +13,7 @@ import type { CaptureGuide } from './captureGuides'
 import { GuidedCaptureDialog } from './GuidedCaptureDialog'
 import { PhotoSlot } from './PhotoSlot'
 import { PERSONAL_COLOR_MESSAGES } from './messages'
+import { PersonalColorBasis } from './PersonalColorBasis'
 import './personal_color.css'
 
 /** 결과 화면 위쪽에서 번지는 빛. 시즌마다 대표 색. */
@@ -60,6 +61,7 @@ function PersonalColorResult({
           <img className="season-hero-face" src={personalColor.selfieUrl} alt={messages.selfieLabel} />
           <p className="season-hero-kicker">{messages.myPersonalColor}</p>
           <h2 className="season-hero-name">{messages.seasonNames[personalColor.season]}</h2>
+          <p className="season-hero-subtype">{messages.typeName(personalColor.season, personalColor.subtype)}</p>
           <p className="season-hero-description">{messages.seasonDescriptions[personalColor.season]}</p>
         </section>
         <section className="personal-color-palette">
@@ -70,7 +72,15 @@ function PersonalColorResult({
             ))}
           </ul>
           <p className="footnote">{messages.paletteNote}</p>
+          <p className="eyebrow">{messages.avoidColors}</p>
+          <ul aria-label={messages.avoidPalette} className="palette-grid palette-grid-avoid">
+            {personalColor.avoidPalette.map((hexColor) => (
+              <li key={hexColor} title={hexColor} style={{ background: hexColor }} />
+            ))}
+          </ul>
+          <p className="footnote">{messages.avoidNote}</p>
         </section>
+        <PersonalColorBasis personalColor={personalColor} />
       </div>
     </PageLayout>
   )

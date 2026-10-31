@@ -16,7 +16,8 @@ const doneFitting: FittingDto = {
   product: {
     id: PRODUCT_ID,
     title: 'Test knit 21',
-    price: 39000,
+    price: 39.99,
+    currency: 'USD',
     mallName: 'Test mall',
     purchaseUrl: 'https://shopping.test/products/21',
     imageUrl: 'https://image.test/products/21.jpg',
@@ -49,7 +50,7 @@ describe('FittingPage 영어 화면', () => {
     expect(await screen.findByRole('img', { name: 'Try-on result' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'Original' })).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Compare original and try-on result' })).toBeInTheDocument()
-    expect(screen.getByText('₩39,000')).toBeInTheDocument()
+    expect(screen.getByText('$39.99')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Buy now' })).toHaveAttribute('target', '_blank')
     expect(screen.getByRole('button', { name: 'Try another item' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Recommendations' })).toBeInTheDocument()

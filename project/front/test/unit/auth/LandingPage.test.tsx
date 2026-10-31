@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AgeGroup, ErrorCode, Gender, Season } from '../../../src/common/type'
+import { AgeGroup, ErrorCode, Gender, Season, SeasonSubtype } from '../../../src/common/type'
 import type { UserDto } from '../../../src/common/type'
 import { LandingPage } from '../../../src/feature/auth'
 import { tokenStorage } from '../../../src/shared/auth'
@@ -15,7 +15,20 @@ const completeUser: UserDto = {
   ...profiledUser,
   personalColor: {
     season: Season.AUTUMN_WARM,
+    subtype: SeasonSubtype.TRUE,
     palette: ['#C19A6B'],
+    avoidPalette: ['#E0218A'],
+    analysis: {
+      faceColors: {
+        skin: '#E3C0A6', lip: '#C8646E', eye: '#3A2A22', eyebrow: '#3B2E28', hair: '#231C19',
+        eyeColorName: 'Brown', hairColorName: 'Black',
+      },
+      warmth: 0.32,
+      depth: 0.13,
+      clarity: -0.11,
+      skinLightness: 80.06,
+      contrast: 69.13,
+    },
     selfieUrl: 'https://storage.test/selfie.jpg',
     bodyImageUrl: 'https://storage.test/body.jpg',
   },
