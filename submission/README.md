@@ -9,7 +9,7 @@
 | 1 | 영어 README (소개·YouCam API·구조·실행 방법) | ✅ 완료 | [`/README.md`](../README.md) |
 | 2 | 레포 공개 + LICENSE (MIT) | ✅ 완료 | https://github.com/najunho04/youcam-project · [`/LICENSE`](../LICENSE) |
 | 3 | 운영 서버 점검 (YouCam 키 교체, 진단·피팅 버그 수정, 상품 이미지 고화질, 중복 상품 51개 제거) | ✅ 완료 | 커밋 `6017357` `e4c9526` `9e81ec6`, 운영 DB 상품 1,477개 |
-| 4 | 심사위원용 테스트 계정 | ✅ 완료 | 계정 정보는 Devpost "Testing instructions" 칸에 직접 입력 (레포에 비밀번호 저장 안 함) |
+| 4 | 심사위원용 테스트 계정 | ✅ 완료 | 양식에 테스트 계정 칸이 없어, 닉네임만으로 가입하는 안내를 Text description 끝 "How to test" 에 넣음 |
 | 5 | 스크린샷 (데스크톱 1440×900, 실제 운영 백엔드 데이터) | ✅ 완료 | [`screenshots/`](screenshots/) — 아래 표 |
 | 6 | 썸네일 (3:2) | ✅ 완료 | [`screenshots/00-thumbnail-3x2.png`](screenshots/00-thumbnail-3x2.png) |
 | 7 | Devpost 텍스트 (Tagline, About, Built with, YouCam API, 테스트 안내) | ✅ 완료 | [`devpost.md`](devpost.md) |

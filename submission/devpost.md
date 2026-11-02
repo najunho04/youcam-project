@@ -126,6 +126,9 @@ Retail value
 - Higher conversion and fewer returns: shoppers are shown items that already fit their colors and taste, and they try on the exact SKU they will buy, not a look-alike.
 - It works on top of an existing catalog (we used the public eBay Browse API without any seller integration), so any marketplace or brand could plug the same flow into its product feed.
 - Personal color type and taste vector are reusable signals for personalization, email targeting and merchandising.
+
+How to test
+Live demo: https://colorfit-topaz.vercel.app/ — sign up with any nickname and password (no email or verification needed) and go through the full flow in about 3 minutes. For the face photo, face the camera directly in even light with your face filling most of the frame.
 ```
 
 ### Code repository URL
