@@ -6,7 +6,7 @@ Built for the **YouCam API Skin AI & eCommerce VTO Hackathon** (Perfect Corp).
 
 - **Live demo:** https://colorfit-topaz.vercel.app/
 - **Demo video:** https://youtu.be/BXzXxAc_a8Q
-- **Test account for judges:** provided in the Devpost submission (Testing instructions). You can also sign up with any nickname — no email needed.
+- **How to test:** open the live demo and sign up with any nickname and password — no email or verification needed. The full flow takes about 3 minutes. For the face photo, face the camera directly in even light with your face filling most of the frame.
 
 ---
 
