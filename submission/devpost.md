@@ -95,7 +95,7 @@ react, typescript, vite, python, fastapi, postgresql, pgvector, pytorch, fashion
 ## Video demo link
 
 ```
-<!-- https://youtu.be/... (공개 또는 일부 공개) -->
+https://youtu.be/BXzXxAc_a8Q
 ```
 
 ## 사용한 YouCam API (대회 질문 칸이 있으면)

@@ -15,9 +15,9 @@
 | 7 | Devpost 텍스트 (Tagline, About, Built with, YouCam API, 테스트 안내) | ✅ 완료 | [`devpost.md`](devpost.md) |
 | 8 | 데모 영상 대본 | ✅ 완료 | [`devpost.md` → 데모 영상 대본](devpost.md#데모-영상-대본-영어-내레이션-약-2분-30초-음악-없음-또는-무료-음원) |
 | 9 | SNS 공유 문구 | ✅ 완료 | [`devpost.md` → SNS 공유 문구](devpost.md#sns-공유-문구-보너스-폼용-선택) |
-| 10 | **데모 영상 촬영·YouTube 업로드** (1~3분, 공개/일부 공개, 저작권 음악 금지) | ⬜ 직접 | 대본 8번 참고 |
+| 10 | 데모 영상 촬영·YouTube 업로드 | ✅ 완료 | https://youtu.be/BXzXxAc_a8Q |
 | 11 | 데모 URL 확인 (Vercel 프로덕션 도메인) | ✅ 완료 | https://colorfit-topaz.vercel.app/ |
-| 12 | README TODO 채우기 (데모 URL, 영상 링크) | 🔶 데모 URL 완료, 영상 링크는 10번 후 | [`/README.md`](../README.md) 상단 |
+| 12 | README TODO 채우기 (데모 URL, 영상 링크) | ✅ 완료 | [`/README.md`](../README.md) 상단 |
 | 13 | **Devpost 제출** — 7번 텍스트 붙여넣기, 스크린샷·썸네일 업로드, 영상·데모·레포 링크, **Rising Star(학생) 체크 + `najoonho@khu.ac.kr`** | ⬜ 직접 | 제출 후 상태가 **Submitted** 인지 확인 |
 
 ## 스크린샷
