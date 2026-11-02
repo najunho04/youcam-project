@@ -105,6 +105,69 @@ https://youtu.be/BXzXxAc_a8Q
 2) AI Clothes Virtual Try-On (cloth-v4) — tries the recommended eBay product on the user's upper-body photo; async with polling and per-(photo, product) caching.
 ```
 
+## 대회 질문 답변 (제출 양식 질문 칸)
+
+### Text description — features, functionality, and consumer / retail value
+
+```
+ColorFit answers the two questions every online clothes shopper has — "does this suit me?" and "is it my style?" — and ends with the real product on your own photo and a link to buy it, in about three minutes.
+
+Features
+1. Personal color with evidence — the user uploads a face photo and an upper-body photo. YouCam's AI Facial Color Tones Analyzer returns skin, lip, eye, eyebrow and hair colors, and ColorFit classifies one of 12 personal color types in CIE Lab space (warmth, depth, clarity). The result screen shows the evidence — the five detected colors and every score — plus the best and avoid palettes.
+2. Taste in 20 swipes — likes and dislikes on outfit photos become a FashionCLIP taste vector (optionally boosted by the user's own favorite outfit photos).
+3. Explainable recommendations — ~1,500 real eBay tops are ranked by 0.7 x taste similarity + 0.3 x color harmony with the user's palette, with avoid-colors penalized. Every card says why it was picked and shows the USD price.
+4. Virtual try-on, then buy — one click sends the user's photo and the actual product image to YouCam AI Clothes (cloth-v4). A before/after slider compares the result, and Buy now opens the same eBay listing.
+
+Consumer value
+- Personal color consulting normally costs a salon visit; here it takes one selfie, and the user can see why they got the result.
+- Users see the actual item on themselves before paying, so they hesitate less and are less likely to buy something that won't suit them.
+
+Retail value
+- Higher conversion and fewer returns: shoppers are shown items that already fit their colors and taste, and they try on the exact SKU they will buy, not a look-alike.
+- It works on top of an existing catalog (we used the public eBay Browse API without any seller integration), so any marketplace or brand could plug the same flow into its product feed.
+- Personal color type and taste vector are reusable signals for personalization, email targeting and merchandising.
+```
+
+### Code repository URL
+
+```
+https://github.com/najunho04/youcam-project
+```
+
+### Was there a moment during the hackathon where the API surprised you — in a good or frustrating way?
+
+```
+Good: cloth-v4 handled real marketplace photos far better than we expected. eBay listing images are messy — mannequins, flat lays, busy backgrounds, models in different poses — and we simply passed the raw listing image as the garment reference. The try-on still kept the product's color, pattern and neckline on the user's own photo, so we could build "try on the exact product you will buy" without any product-side preparation.
+
+Also good: the Facial Color Tones Analyzer returns much more than a skin tone — lip, eye, eyebrow and hair colors with names. That let us build a 12-type classifier with an explainable contrast axis (skin vs. darkest of hair/eyebrow/eye) instead of a single warm/cool guess.
+
+Frustrating: the first time we deployed to production, analysis failed for real users with a 502. After adding logging we found the response sometimes omits hair_color (e.g. when hair is covered or out of frame) — our code assumed every field was always present. We now fill hair and eyebrow from each other and only fail if both are missing. Phone photos over the size limit and EXIF-rotated images also failed until we normalized uploads (rotate, resize to 2048 px) before sending them.
+```
+
+### Are there industries or use cases you think Perfect Corp.'s API could serve that nobody is talking about yet?
+
+```
+- Second-hand and resale marketplaces (eBay, Poshmark, Vinted): each listing is one-of-a-kind with a single amateur photo, so there is no size chart or model shot. Try-on directly from the listing photo — what ColorFit does — removes most of the uncertainty of buying used.
+- Group coordination: bridesmaids, school uniforms, team or company workwear. One palette has to work for many different faces; running the color tones analyzer on each person could pick the shade that suits the whole group.
+- Hair color and home decor: the same personal color palette that picks clothes could recommend hair dye shades, glasses frames, or even paint and fabric colors for a room.
+- Photo studios and professional headshots: suggest what to wear before the shoot based on the client's personal color, then preview it with try-on.
+- Accessibility: for people with color vision deficiency, a measurable "this color suits you / avoid this one" with the numbers behind it is genuinely useful when shopping alone.
+```
+
+### Where did you hit a wall technically? How did you work around it?
+
+```
+1. Dominant color of messy product photos. K-means on a raw eBay image often returned the background or the model's skin as the "main" color, which broke color matching. Workaround: estimate the background from border pixels, remove it, then run K-means (k = 3) on the rest and keep the largest cluster. We computed this once at ingest time and stored it, so recommendations stay fast.
+
+2. Turning five colors into a trustworthy verdict, with no labeled data. We had no dataset of "true" personal color types to train on. Instead we designed three measurable axes in CIE Lab (warmth from skin + lip hue, depth from skin lightness + contrast, clarity from skin + lip chroma), derived season and subtype from them, and showed every number to the user, so the result is explainable rather than a black box.
+
+3. Slow, paid, asynchronous try-on. A cloth-v4 task takes tens of seconds and costs credits — even tasks that time out on our side are billed. A normal request/response would time out behind the proxy. Workaround: POST /api/fittings returns 202 immediately, a background worker polls YouCam to completion and stores the result in S3, and the browser polls the status. Results are cached per (user photo x product), so trying the same item again is free.
+
+4. Unreliable real-world input. Missing hair_color, oversized phone photos and EXIF rotation all caused production failures. We added upload normalization, tolerant parsing, and logging of the upstream error code; face-detection errors (error_no_face, etc.) are turned into a re-take guide for the user.
+
+5. Running FashionCLIP cheaply. The model and 1,500 product embeddings run on CPU on a single EC2 instance, with vectors stored in Postgres + pgvector for similarity search, so we didn't need a GPU or a separate vector database.
+```
+
 ## 심사위원용 테스트 접근 (Testing instructions)
 
 ```
