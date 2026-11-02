@@ -378,3 +378,15 @@ def test_run_category_ingest_counts_failed_category_and_continues(database_sessi
     report = service.run_category_ingest(search, download_returning(sample_image_bytes(image_format="PNG", size=32)))
 
     assert (report.saved, report.failed_categories) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    ("image_url", "expected"),
+    [
+        ("https://i.ebayimg.com/images/g/Wf8AAOSw6PFmDNMU/s-l225.jpg", "https://i.ebayimg.com/images/g/Wf8AAOSw6PFmDNMU/s-l1600.jpg"),
+        ("https://i.ebayimg.com/images/g/abc/s-l500.webp", "https://i.ebayimg.com/images/g/abc/s-l1600.webp"),
+        ("https://image.test/items/1.png", "https://image.test/items/1.png"),
+    ],
+)
+def test_to_large_ebay_image_url(image_url, expected):
+    assert service.to_large_ebay_image_url(image_url) == expected

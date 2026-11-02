@@ -1,5 +1,6 @@
 """product_ingest 슬라이스 비즈니스 로직. 키워드 1개 = 트랜잭션 1개."""
 import io
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -28,6 +29,10 @@ BACKGROUND_DELTA_E_THRESHOLD = 12.0  # 테두리 배경색과 이보다 가까�
 MINIMUM_FOREGROUND_RATIO = 0.05  # 배경을 빼고 남은 픽셀이 영역의 5% 미만이면 영역 전체를 쓴다
 CLUSTER_COUNT = 3
 MAXIMUM_CLUSTER_ITERATIONS = 10
+# eBay 검색 응답의 imageUrl 은 225px 썸네일(…/s-l225.jpg). 같은 주소의 숫자만 바꾸면 eBay 가 가진 가장 큰 이미지(최대 1600px)를 준다.
+# 추천 카드 표시와 가상 피팅 참고 이미지에 쓰이므로 큰 주소로 저장한다
+_EBAY_IMAGE_SIZE_PATTERN = re.compile(r"/s-l\d+(\.\w+)$")
+EBAY_LARGE_IMAGE_SIZE = "s-l1600"
 ANALYSIS_MAXIMUM_SIDE = 200  # 계산량을 줄이려고 긴 변을 이 크기로 줄인다 (가까운 픽셀 보간이라 색이 섞이지 않는다)
 
 _GENDER_WORDS = {Gender.FEMALE: "women", Gender.MALE: "men"}
@@ -118,10 +123,15 @@ def map_ebay_item(item: dict) -> EbayProductFields:
             currency=_required_text(price.get("currency"), "price.currency"),
             mall_name=MALL_NAME,
             purchase_url=_required_text(item.get("itemWebUrl"), "itemWebUrl"),
-            image_url=_required_text((item.get("image") or {}).get("imageUrl"), "image.imageUrl"),
+            image_url=to_large_ebay_image_url(_required_text((item.get("image") or {}).get("imageUrl"), "image.imageUrl")),
         )
     except (KeyError, TypeError, AttributeError, ValueError, InvalidOperation) as error:
         raise AppError(ErrorCode.VALIDATION_ERROR, f"상품 필드 오류: {error}") from error
+
+
+def to_large_ebay_image_url(image_url: str) -> str:
+    """'…/s-l225.jpg' → '…/s-l1600.jpg'. eBay 크기 표기가 없는 주소는 그대로."""
+    return _EBAY_IMAGE_SIZE_PATTERN.sub(rf"/{EBAY_LARGE_IMAGE_SIZE}\1", image_url)
 
 
 def _required_text(value: object, field_name: str) -> str:
