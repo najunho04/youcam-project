@@ -146,20 +146,20 @@ describe('LandingPage', () => {
     }
 
     function cardCount() {
-      return within(screen.getByRole('region', { name: 'ColorFit looks' })).getByText(/\d{2} \/ 05/)
+      return within(screen.getByRole('region', { name: 'ColorFit looks' })).getByText(/\d{2} \/ 08/)
     }
 
     afterEach(() => {
       vi.useRealTimers()
     })
 
-    it('갤러리 대신 코디 일러스트 5장을 반원으로 펼쳐 보여주고, 첫 장이 메인이다', () => {
+    it('갤러리 대신 코디 일러스트 8장 중 다섯 장을 반원으로 펼쳐 보여주고, 첫 장이 메인이다', () => {
       stubFetchResponse(200, newUser)
       renderLandingPage()
 
       const wheel = screen.getByRole('region', { name: 'ColorFit looks' })
       expect(within(wheel).getAllByRole('img')).toHaveLength(5)
-      expect(cardCount()).toHaveTextContent('01 / 05')
+      expect(cardCount()).toHaveTextContent('01 / 08')
     })
 
     it('시간이 지나면 다음 카드가 돌아서 메인이 된다', () => {
@@ -171,7 +171,7 @@ describe('LandingPage', () => {
         vi.advanceTimersByTime(3500)
       })
 
-      expect(cardCount()).toHaveTextContent('02 / 05')
+      expect(cardCount()).toHaveTextContent('02 / 08')
     })
 
     it('옆 카드를 누르면 그 카드가 메인으로 돌아온다', async () => {
@@ -180,7 +180,7 @@ describe('LandingPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Bring Blue gingham shirt with brown trousers to the front' }))
 
-      expect(cardCount()).toHaveTextContent('02 / 05')
+      expect(cardCount()).toHaveTextContent('02 / 08')
     })
 
     it('비로그인이면 메인 카드를 눌러 로그인 화면으로 이동한다', async () => {
