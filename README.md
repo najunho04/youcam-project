@@ -6,7 +6,7 @@ Built for the **YouCam API Skin AI & eCommerce VTO Hackathon** (Perfect Corp).
 
 - **Live demo:** <!-- TODO: replace with the Vercel production URL --> `https://<your-vercel-domain>`
 - **Demo video:** <!-- TODO --> `https://youtu.be/<id>`
-- **Test account for judges:** <!-- TODO --> `judge@example.com` / `********`
+- **Test account for judges:** provided in the Devpost submission (Testing instructions). You can also sign up with any nickname — no email needed.
 
 ---
 
