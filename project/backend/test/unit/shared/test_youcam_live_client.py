@@ -51,9 +51,34 @@ def test_missing_color_names_become_none():
     assert face_colors.hair_color_name is None
 
 
-@pytest.mark.parametrize("missing_key", ["skin_color", "lip_color", "eye_color", "eyebrow_color", "hair_color"])
+@pytest.mark.parametrize("missing_key", ["skin_color", "lip_color", "eye_color"])
 def test_missing_hex_becomes_external_api_failed(missing_key):
     color_result = {key: value for key, value in OFFICIAL_COLOR_RESULT.items() if key != missing_key}
+    client = make_client({"task_status": "success", "results": {"color": color_result}})
+
+    with pytest.raises(AppError) as raised:
+        client.analyze_face_colors("https://image.test/selfie.jpg")
+    assert raised.value.error_code == ErrorCode.EXTERNAL_API_FAILED
+
+
+@pytest.mark.parametrize(
+    ("missing_key", "expected_hex"), [("hair_color", "#5B2B31"), ("eyebrow_color", "#A0A0A0")]
+)
+def test_missing_hair_or_eyebrow_is_filled_from_the_other(missing_key, expected_hex):
+    color_result = {key: value for key, value in OFFICIAL_COLOR_RESULT.items() if key != missing_key}
+    client = make_client({"task_status": "success", "results": {"color": color_result}})
+
+    face_colors = client.analyze_face_colors("https://image.test/selfie.jpg")
+
+    assert face_colors.hair == face_colors.eyebrow == expected_hex
+    if missing_key == "hair_color":
+        assert face_colors.hair_color_name is None
+
+
+def test_missing_both_hair_and_eyebrow_becomes_external_api_failed():
+    color_result = {
+        key: value for key, value in OFFICIAL_COLOR_RESULT.items() if key not in ("hair_color", "eyebrow_color")
+    }
     client = make_client({"task_status": "success", "results": {"color": color_result}})
 
     with pytest.raises(AppError) as raised:

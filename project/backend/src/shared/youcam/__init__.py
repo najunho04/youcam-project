@@ -129,15 +129,19 @@ def _normalize_hex(value: object) -> str:
 
 
 def to_face_colors(color: dict) -> FaceColorsDto:
-    """YouCam results.color → FaceColorsDto. hex 5개는 필수, 색 이름 2개는 없으면 None."""
+    """YouCam results.color → FaceColorsDto. 피부·입술·눈 hex 는 필수, 색 이름 2개는 없으면 None.
+    YouCam 은 머리카락(또는 눈썹)을 못 찾으면 그 키를 빼고 성공을 준다. 판정에서 머리·눈썹은
+    "가장 어두운 색" 후보로만 쓰이므로 하나가 없으면 다른 하나로 채운다. 둘 다 없으면 KeyError."""
+    hair_hex = color.get("hair_color") or color["eyebrow_color"]
+    eyebrow_hex = color.get("eyebrow_color") or hair_hex
     return FaceColorsDto(
         skin=_normalize_hex(color["skin_color"]),
         lip=_normalize_hex(color["lip_color"]),
         eye=_normalize_hex(color["eye_color"]),
-        eyebrow=_normalize_hex(color["eyebrow_color"]),
-        hair=_normalize_hex(color["hair_color"]),
+        eyebrow=_normalize_hex(eyebrow_hex),
+        hair=_normalize_hex(hair_hex),
         eye_color_name=color.get("eye_color_name") or None,
-        hair_color_name=color.get("hair_color_name") or None,
+        hair_color_name=(color.get("hair_color_name") or None) if color.get("hair_color") else None,
     )
 
 
