@@ -1,6 +1,6 @@
 # ColorFit 하네스 운영 가이드
 
-수직 슬라이스 하네스를 이 프로젝트에 적용하면서 정한 규칙과 절차를 한곳에 모은 문서. 하네스 원리는 [README.md](README.md), 설계 문서는 [`project-all-docs/`](project-all-docs/README.md)에 있다.
+수직 슬라이스 하네스를 이 프로젝트에 적용하면서 정한 규칙과 절차를 한곳에 모은 문서. 하네스 원리는 [harness-template.md](project-all-docs/harness-template.md), 설계 문서는 [`project-all-docs/`](project-all-docs/README.md)에 있다.
 
 > 핵심 세 가지
 > 1. **세션은 `project/`에서 연다.** 최상위 폴더 세션은 문서·카드 동기화용이다.

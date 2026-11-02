@@ -1,249 +1,196 @@
-# 🚦 수직적 피쳐 슬라이스 하네스 (Vertical Feature Slicing Harness)
+# ColorFit — Personal Color × Taste → Try It On → Buy It
 
-> "I/O를 중심으로 기능마다 하나의 Function처럼 슬라이스한 Feature"를 기반으로 프로젝트를 구현하기 위한 1인 개발 최적화 하네스 템플릿.
+> Find clothes that **suit you** and that **you actually like**, try them on your own photo, and buy them — in about three minutes.
 
-이 레포는 **템플릿**입니다. `Use this template`으로 복제해서 씁니다.
+Built for the **YouCam API Skin AI & eCommerce VTO Hackathon** (Perfect Corp).
 
-최상위 경로는 관리자 세션으로 /project-all-docs와 /project 전체를 관리&편집이 가능합니다. 
+- **Live demo:** <!-- TODO: replace with the Vercel production URL --> `https://<your-vercel-domain>`
+- **Demo video:** <!-- TODO --> `https://youtu.be/<id>`
+- **Test account for judges:** <!-- TODO --> `judge@example.com` / `********`
 
-/project 세션은 슬라이스 테스트&구현 세션입니다. 테스트&구현 세션은 상위경로를 볼 수 없고, /shared 등 특정 경로의 수정이 불가합니다.
+---
 
-이 하네스의 목적은 프로젝트를 공용 로직(foundation) 위에서 수직적 슬라이스로 나눠 격리한 채 각각 구현하여 1) 최소 컨텍스트를 통한 환각/망각 이슈 해소, 2) 최소 컨텍스트를 통한 환각/망각 이슈 해소, 3) 결정론적 검증 및 하네스 등의 이점을 제공합니다.
+## The problem
 
+Online fashion shopping asks two questions at once — *"does this suit me?"* and *"is this my style?"* — and gives you tools for neither. Personal color analysis lives in a beauty app, shopping lives in a store, and since you can't try anything on, you either hesitate or return it.
 
+## What ColorFit does
 
-## 시작하기
+| Step | What the user does | What happens |
+|---|---|---|
+| 1. Profile | Picks age group and gender | Selects the outfit pool for onboarding |
+| 2. Personal color | Takes a guided selfie + upper-body photo | **YouCam Facial Color Tones Analyzer** returns skin, lip, eye, eyebrow and hair colors → our classifier decides one of **12 personal color types** and **shows the evidence** |
+| 3. Swipe | Likes / dislikes ~20 outfit photos | Builds a taste vector with FashionCLIP embeddings |
+| 4. Wardrobe (optional) | Uploads 3–4 outfit photos they love | Weighted more heavily in the taste vector |
+| 5. Recommendations | Browses 6 real eBay tops | Ranked by taste similarity + color harmony, each with "why recommended" tags and a USD price |
+| 6. Virtual try-on | Clicks **Try it on** | **YouCam AI Clothes (cloth-v4)** puts the actual product on the user's photo; before/after view and a **Buy on eBay** link |
 
-clone 직후 **이 두 가지를 먼저 확정**한다. 이걸 안 하면 세션이 실행 방법을 추측하고, import 경계가 안 막힌다.
+**What makes it different**
+
+- **Suitability and taste are scored separately**, then combined — and the reason is shown on every card.
+- **Explainable personal color.** The result screen shows the five face colors YouCam detected, the scores on three axes (warmth, depth, clarity), skin lightness and contrast, and the sentence that led to the verdict — not just a label.
+- **You try on the real product, not a look-alike.** Recommendation → virtual try-on → purchase link all point at the same eBay listing.
+
+---
+
+## YouCam APIs used
+
+Both are called server-side through one client, [`shared/youcam`](project/backend/src/shared/youcam/__init__.py), as async tasks (`POST /s2s/v2.0/task/{feature}` → poll `GET .../{task_id}` until `success` / `error`). Images are passed by URL (short-lived S3 presigned URLs).
+
+### 1. AI Facial Color Tones Analyzer — `skin-tone-analysis`
+
+Used by the **personal color** feature, once per diagnosis.
+
+We use **every color field** in the response — skin, lip, eye, eyebrow and hair hex values plus eye/hair color names — and classify in CIE Lab space ([`shared/color`](project/backend/src/shared/color/__init__.py)):
+
+| Axis | Computed from | Meaning |
+|---|---|---|
+| Warmth | Skin hue (70%) + lip hue (30%) | yellow-leaning = warm, pink/red-leaning = cool |
+| Depth | Skin L\* (60%) + contrast (40%), contrast = skin L\* − darkest of hair/eyebrow/eye | light (Spring/Summer) vs deep (Autumn/Winter) |
+| Clarity | Skin chroma (60%) + lip chroma (40%) | bright vs soft |
+
+- **Season** = warmth × depth → Spring / Summer / Autumn / Winter
+- **Subtype** = the most pronounced axis within that season → 12 types (e.g. *Autumn Warm · Deep*, *Winter Cool · Bright*)
+- Each type has an 8-color "best" palette; each season has a 6-color "avoid" palette.
+- Face-detection failures (`error_no_face`, `error_face_*`, …) are surfaced to the user as a re-take guide.
+
+### 2. AI Clothes Virtual Try-On — `cloth-v4`
+
+Used by the **fitting** feature when the user clicks *Try it on*.
+
+- Input: the user's upper-body photo (`src_file_url`) + the eBay product image (`ref_file_url`), `garment_category: "auto"`.
+- `POST /api/fittings` starts the task and returns `202` immediately; a background worker polls YouCam to completion and stores the result in S3; the browser polls `GET /api/fittings/{id}`.
+- Results are **cached per (user photo × product)**, so re-trying the same item costs no credits. Every started task is polled to completion (YouCam bills timed-out tasks too).
+
+---
+
+## How recommendations work
+
+```
+score = α · taste_similarity + (1 − α) · color_score        (α = 0.7)
+```
+
+- **Taste vector** `u = normalize(mean(liked) + w_c · mean(wardrobe) − β · mean(disliked))` over FashionCLIP image embeddings (L2-normalized, stored in pgvector).
+- **Color score** — the product's dominant color vs. the user's 12-type palette, `max(0, 1 − ΔE/50)` with CIE76 ΔE to the nearest palette color; halved if it is close (ΔE < 15) to the season's avoid palette.
+- **Dominant color** is extracted once at ingest time: estimate the background from border pixels, remove it, run K-means (k = 3) on the rest and keep the largest cluster's center.
+- **Product data** — ~1,500 tops collected from the **eBay Browse API** (`item_summary/search`, EBAY_US), embedded with FashionCLIP, style-classified, and manually reviewed. Product images are not stored; only URLs.
+- Fewer than 3 likes → fallback to color score only.
+
+---
+
+## Architecture
+
+```
+Browser ──HTTPS──▶ Vercel (React SPA)
+                    └─ /api/* rewrite ──HTTPS──▶ AWS EC2 (Caddy → FastAPI + FashionCLIP)
+                                                   ├─▶ Neon Postgres + pgvector
+                                                   ├─▶ S3 (private bucket, presigned URLs)
+                                                   └─▶ YouCam API (skin-tone-analysis, cloth-v4)
+
+Offline batch (make ingest): eBay Browse API → background removal + K-means color → FashionCLIP → products
+```
+
+| Layer | Stack |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, React Router, MediaPipe Tasks Vision (face / upper-body capture guide), Vitest |
+| Backend | Python 3.13, FastAPI, SQLAlchemy, uv, pytest |
+| ML | FashionCLIP (PyTorch CPU) for image embeddings, CIE Lab / K-means for color |
+| Data | PostgreSQL + pgvector (Neon in production, Docker locally), S3 |
+| Infra | Vercel (front), EC2 + Caddy + Docker (back), GitHub Actions CI, OIDC → ECR → SSM deploy |
+
+### Code structure — vertical feature slices
+
+Each feature is one vertical slice (request → backend → UI) that may not import another slice; shared code lives in `common/` (types only) and `shared/` (infrastructure). Import boundaries are enforced by import-linter and ESLint.
+
+```
+project/
+  backend/src/
+    common/          entities, DTOs, enums, error codes (types only)
+    shared/          youcam · color · embedding · storage · database · security · config
+    feature/
+      auth/          sign-up / login (JWT)
+      profile/       age group, gender
+      personal_color/  YouCam face colors → 12-type verdict + evidence
+      swipe/         onboarding cards and answers
+      wardrobe/      optional outfit-photo upload
+      recommendation/  taste × color ranking
+      fitting/       YouCam cloth-v4 virtual try-on (async + cache)
+      product_ingest/  eBay batch: collect → color → embed → store
+    main.py
+  front/src/
+    feature/         same slices as the backend (pages, API calls, styles)
+    shared/ common/ app/
+  e2e/               Playwright end-to-end tests
+project-all-docs/    PRD, API spec, ERD, feature graph (design docs, Korean)
+```
+
+### API
+
+| Method | Path | Slice |
+|---|---|---|
+| POST | `/api/auth/signup`, `/api/auth/login` | auth |
+| GET | `/api/users/me` | auth |
+| PUT | `/api/users/me/profile` | profile |
+| POST | `/api/personal-color` | personal_color |
+| GET / POST | `/api/swipe/cards`, `/api/swipe/answers` | swipe |
+| POST | `/api/wardrobe-photos` | wardrobe |
+| GET | `/api/recommendations` | recommendation |
+| POST / GET | `/api/fittings`, `/api/fittings/{id}` | fitting |
+
+Full spec: [`project-all-docs/api.md`](project-all-docs/api.md) · ERD: [`project-all-docs/erd.md`](project-all-docs/erd.md)
+
+---
+
+## Running locally
+
+**Requirements:** Docker, Python 3.13 + [uv](https://docs.astral.sh/uv/), Node.js 20+.
 
 ```bash
-cd project && make setup     # git 훅 연결. 1회
+cd project
+cp .env.example .env      # defaults run fully offline (YouCam mock, local storage)
+make setup                # git hooks + backend/frontend/e2e dependencies
+make dev                  # Postgres (Docker) + FastAPI :8000 + Vite :5173
 ```
 
-| # | 파일 | 할 것 |
-|---|---|---|
-| 1 | [`project/Makefile`](project/Makefile) | `dev` `test` `test-slice` `test-e2e` `lint` 5개의 `TODO`를 스택 명령으로 교체 |
-| 2 | 린트 룰 파일 (스택별) | "다른 `feature/` 폴더 import 금지" 규칙 1개 작성. 실행 명령은 1번의 `lint:` 밑에 |
+Open http://localhost:5173.
 
-**이게 언어별 스택 커스텀의 전부다.** 나머지(`CLAUDE.md`, `.claude/settings.json`, `.githooks/`, 디렉토리 구조)는 경로 기반이라 언어 무관. 스택별 예시는 [project/docs/stack-guide.md](project/docs/stack-guide.md).
+By default `YOUCAM_MODE=mock` returns canned YouCam responses, so no API key or credits are needed. To call the real APIs:
 
-그 다음:
+| Variable | Value |
+|---|---|
+| `YOUCAM_MODE` | `live` |
+| `YOUCAM_API_KEY` | your YouCam API key |
+| `STORAGE_MODE` | `s3` — YouCam downloads input images by URL, so they must be publicly reachable (presigned S3 URLs) |
+| `S3_BUCKET`, `AWS_REGION` | your bucket; AWS credentials are picked up from `~/.aws` or an instance role |
 
-1. `project-all-docs/`에 `api.md`, `erd.md`, `feature-graph.md` 작성 (사람)
-2. 도출된 엔티티·DTO·enum을 `project/*/src/common/`에 코드로 내려놓기
-3. 슬라이스마다 `project-all-docs/context-card/_template.md` 복사해 카드 작성. **빈칸이 남으면 설계가 덜 된 것**
-4. `project/`에서 세션 열기 → [`test-session.md`](project/docs/prompts/test-session.md) 프롬프트 + 카드로 계약 테스트 작성 → 사람(혹은 관리자 세션) 승인 → 동결(구현 세션은 수정 불가)
-5. [`implementation-session.md`](project/docs/prompts/implementation-session.md) 프롬프트 + 카드로 구현 세션 + 계약 테스트 실행 후 보고
-6. `project-all-docs/checklist.md` 전부 통과하면 머지
+Loading products (optional, needs eBay Production keys in `.env`):
 
----
-
-## 핵심 기능
-
-- **최소 컨텍스트를 통한 환각/망각 이슈 해소** — 전체 문서 대신 슬라이스당 1장의 컨텍스트 카드만 세션에 제공
-- **모노레포 및 슬라이스를 통한 병렬 구현** — 의존성이 낮은 슬라이스를 워크트리로 동시에 구현
-- **결정론적 검증** — 사람의 인상이 아니라 통과/실패로 판정. 채점 기준(계약 테스트·E2E)은 세션 쓰기 권한 밖
-
-## 핵심 원칙
-
-1. **세션에는 전체 맥락 대신 해당 피쳐 + 앞뒤 맥락만** — I/O 계약, 사용 테이블, 상하류, 레퍼런스 슬라이스만 넣는다.
-2. **피쳐는 무조건 세로로 자른다** — 클라이언트 요청 → 백엔드 → 클라이언트 출력까지가 한 슬라이스. 가로(프론트/백)로 잘라야 할 만큼 크면 슬라이스를 잘못 잡은 것.
-3. **각 슬라이스는 무조건 다른 슬라이스에 의존하지 않는다** - 슬라이스가 필요한 의존성은 전부 /shared에 존재한다. 슬라이스 간의 임의 의존성 부여 시 (ex import) git-hook으로 결정론적 대응. 이 경우에는 사용자가 의존 그래프를 재고한다.
-4. **중간중간 하네스로 조인다** — 방치하고 결과만 받지 않는다. 실수가 나올 때마다 원인을 기계적으로 막는다.
-5. **TC로 결정론적 검증** — 판정 기준은 통과/실패 값. 채점 기준은 에이전트 쓰기 권한 밖에 둔다.
-6. **루프 엔지니어링** — N개 피쳐마다 개선 루프. 기준을 넘을 때까지 반복하되 M회 도달 시 중단 후 로그 출력.
-
----
-
-## 디렉토리 구조
-
-```
-/project-all-docs                  # 세션 접근 X (총괄 문서, 사람만 읽음)
-  /context-card                    # 슬라이스당 1장 → 프롬프트로 복사
-    _template.md                   # 컨텍스트 카드 템플릿
-    order-cancel.md                # 작성 예시
-  api.md                           # 전체 API 명세
-  erd.md                           # 전체 ERD
-  feature-graph.md                 # 피쳐 의존 그래프
-  checklist.md                     # 슬라이스 완료 체크리스트
-  loop-config.md                   # 목표 지표 / 최대 반복 횟수
-  approvals.md                     # 계약·공용 변경 승인 기록
-
-/project                           # 레포 root (세션은 여기서 연다)
-  CLAUDE.md                        # 자동 주입. 짧게 (쓰기 X)
-  Makefile                         # dev / test / test-slice / test-e2e / lint 고정 (쓰기 X)
-  .claudeignore                    # docs/generated 제외 (쓰기 X)
-  .githooks/pre-commit             # 커밋 시점 경계 검사 (쓰기 X)
-  .claude/settings.json            # 툴 호출 시점 경계 검사: deny / ask (쓰기 X)
-  /backend
-    /src
-      /common                      # 타입만. 로직 X (쓰기 X)
-        /entity
-        /dto
-        /enums
-        /error
-      /shared                      # 인프라. 로직 (쓰기 X)
-        /security                  # 인증 필터, 권한, 현재 사용자
-        /exception                 # 전역 예외 핸들러
-        /response                  # 공통 응답
-        /config
-      /feature
-        /{slice}                   # 슬라이스별 (쓰기 O)
-    /test
-      /contract                    # 컨텍스트 카드로 만든 TC. hook으로 수정 차단
-      /unit
-        /{slice}                 # 세션이 TDD로 작성. 자기 슬라이스 폴더만 (쓰기 O)
-  /front                           # backend 폴더와 구조 동일
-    /src
-      /common
-        /type
-      /shared
-        /auth
-        /ui
-        /api
-      /feature
-        /{slice}
-    /test
-      /contract
-      /unit
-        /{slice}
-  /e2e                             # 통합 테스트. 동결 (쓰기 X)
-  /docs
-    /generated                     # OpenAPI·ERD 생성물 (claudeignore 대상)
-    /prompts                       # 테스트 세션 / 구현 세션 프롬프트 템플릿
-    stack-guide.md                 # 스택별 Makefile·린트 예시
+```bash
+make ingest               # eBay → dominant color + FashionCLIP embedding → products
 ```
 
-**핵심은 두 가지.** `common/`·`shared/`는 세션 쓰기 금지, `test/contract/`는 실구현 전에 컨텍스트 카드를 보고 승인 후 동결. 나머지는 프로젝트에 맞게 조정.
+`EMBEDDING_MODE=fashion_clip` downloads the model (~600 MB) on first run; `fake` is available for quick UI work.
 
-- `project-all-docs/`는 원래 **레포 밖**에 두는 것이 원칙이다. 이 템플릿에서는 편의상 같은 레포의 형제 폴더로 두었으며, 세션은 반드시 `project/`에서 연다. 동기화가 필요할 때만 최상위(real-root)에서 새 세션을 연다.
-- `docs/`는 사람용이라 세션에 통째로 들어가지 않는다. **세션은 프롬프트로 컨텍스트 카드만 제공받는다.**
+### Tests
 
----
-
-## 워크플로우
-
-1. **피쳐 함수 단위 설계** — 세로 슬라이스 분해, I/O 확정, 공용 레이어와 구현 순서 결정 (사람)
-2. **API · ERD 문서화** — 사람이 조망하는 용도. 여기서 나온 타입/DTO/enum은 `common/`에 코드로 내려놓음
-3. **의존 그래프** — 순서·병렬 묶음 정리. 시각화는 사람용, 상하류 한 줄은 세션 프롬프트로
-4. **테스트 세션** — 깨끗한 세션이 명세만 보고 계약 테스트 작성 → 사람 승인 → 동결
-5. **구현 세션** — 피쳐별 세션. 의존 없는 것끼리 N개 세선에서 병렬 구현 
-6. **루프 엔지니어링** — 사용자 임의로 실행. 다만 사용자가 구체적인 metric으로 종료 시점과 목표를 언급할 것 
-7. **E2E + 육안 확인** — 슬라이스 완료 게이트
-
----
-
-## 테스트 3계층
-
-| 계층 | 범위 | 루프 안 | 작성 주체 |
-|---|---|---|---|
-| 단위/로직 | 백·프론트 각자 | O | 구현 세션 (TDD) |
-| API 계약 | 백엔드 응답 형태 | O | 테스트 세션 → 동결 |
-| E2E | 슬라이스 전체 흐름 | X (게이트) | 테스트 세션 |
-
-API 계약 테스트가 타입 공유의 빈자리를 메운다. 백엔드/프론트가 언어가 달라 컴파일러 보호가 없는 유일한 구간이라, 여기가 뚫리면 통합 시점에야 발견된다.
-
-### 계약 테스트 원칙
-
-- **작성 세션은 구현 코드를 보면 안 된다.** 컨텍스트 카드만 보고 작성
-- **사람 승인 후 동결.** 여기서 걸러지는 건 테스트보다 명세 오해. 두 AI가 같은 문서를 다르게 읽었다면 문서가 모호한 것
-- **피쳐당 3~7개.** 계약과 주요 엣지케이스만
-- **세션 쓰기 권한 밖에 둔다**
-
----
-
-## 하네스 개입 트리거
-
-**하드 스톱**
-
-- 테스트 파일 수정 시도
-- 슬라이스 밖 파일 수정 / 공용 레이어 변경
-
-**경고**
-
-- TC·E2E 2회 연속 실패
-- 계약 테스트 실패 (명세 오해 신호 — 세부 테스트 실패와 구분)
-- 같은 파일 3회 이상 반복 수정
-- `any` / `@ts-ignore` / 테스트 skip 처리
-- 임의 구현, 의존성 추가, 스키마·마이그레이션 변경
-- 컨텍스트 임계 도달
-
-1인이 세션 3개를 눈으로 볼 수는 없다. **git hook, 린트 룰, 파일 권한처럼 기계가 막는 쪽으로 최대한 옮긴다.**
-
-### 기계적 강제(테스트&구현 세션에만 해당)
-
-`CLAUDE.md`는 강제력이 없다. 실제 차단은 두 지점, 두 등급.
-
-| 등급 | 경로 | 툴 호출 시점 ([`.claude/settings.json`](project/.claude/settings.json)) | 커밋 시점 ([`.githooks/pre-commit`](project/.githooks/pre-commit)) |
-|---|---|---|---|
-| **하드** | `test/contract/` | 커밋된(동결된) 슬라이스는 PreToolUse hook(`.claude/hooks/protect-frozen-contract.py`)이 Edit/Write 거부. 삭제·이동(`rm`/`mv`)은 `deny` | 항상 차단. 해제 없음 (동결 커밋은 사람이 `--no-verify`) |
-| **소프트** | `src/common/`, `src/shared/`, `e2e/`, 설정 파일 | `ask` — 사용자 승인 프롬프트 | 차단. `HARNESS_APPROVED=1 git commit`이면 통과 → `approvals.md` 기록 |
-
-- 계약 테스트만 하드인 이유: 채점 기준이라 세션 안에서 풀리면 "동결"이 아니게 된다.
-- 동결 = git 커밋. 커밋 전에는 테스트 세션이 그 자리에서 작성하고, 사람이 승인해 커밋하는 순간부터 hook 이 막는다. 켜고 끄는 설정이 없다.
-- 나머지가 소프트인 이유: DTO 필드 추가 같은 공용 변경은 실제로 필요해진다. 막되 사람이 풀 수 있어야 한다.
-- 훅 우회(`--no-verify`, `HARNESS_APPROVED=`)도 `ask`. 세션이 시도하면 사용자에게 보인다.
-- `--dangerously-skip-permissions`는 `ask`를 전부 무력화하므로 쓰지 않는다.
-- 슬라이스 간 import는 pre-commit이 `make lint`로 검사한다. `HARNESS_APPROVED`로도 안 풀린다. `lint` 타겟이 `TODO`인 동안은 경고만 낸다.
-
-**세션 쓰기 범위** — `order-cancel` 세션 기준:
-
-```
-feature/order-cancel/**, test/unit/order-cancel/**   O
-src/common/**, src/shared/**, e2e/**, 설정 파일        △  ask
-feature/order-create/** (다른 슬라이스)                △  HARNESS_SLICE 설정 시 검사 (선택)
-test/contract/**                                     X  동결(커밋) 후 hook 차단, rm/mv 는 deny
+```bash
+make test                 # backend unit + contract tests (pytest) and frontend tests (Vitest)
+make lint                 # cross-slice import checks
+make test-e2e             # Playwright, with `make dev` running
 ```
 
 ---
 
-## 루프 안전장치
+## Privacy
 
-목표 점수만 걸면 그 점수만 오른다. 캐시로 정합성을 깨거나, 검사 범위를 줄여 취약점 점수를 올리는 식.
+- User photos are stored in a private S3 bucket (encrypted, public access blocked) and only exposed through short-lived presigned URLs.
+- YouCam deletes processed input data within 24 hours.
+- No eBay user data is stored — not even seller IDs.
 
-- **목표 점수** — 올리려는 지표
-- **불변 게이트** — 계약 테스트 + E2E. 쓰기 권한 밖. 하나라도 깨지면 이터레이션 무효
-- **최대 반복 횟수** — 도달 시 성공 여부와 무관하게 중단, 사람에게 인계
-- **diff 리뷰** — 점수가 올랐어도 어떻게 올렸는지는 본다
-- **지표당 루프 하나** — 성능과 취약점을 동시에 걸면 상충하는 최적화가 나와 원인 추적 불가
+## Development process
 
----
+This project was built with a vertical-slice harness for AI-assisted solo development (one context card per slice, frozen contract tests, boundary checks in git hooks). See [`README-HARNESS.md`](README-HARNESS.md) (Korean).
 
-## 보조 규칙
+## License
 
-- **읽기 전용 경계** — 공용 레이어는 세션에서 수정 금지. 필요하면 구현하지 말고 보고 후 중단
-- **레퍼런스 슬라이스** — 첫 슬라이스는 병렬로 뿌리지 말고 혼자 구현. 이후 세션에 "이 폴더와 같은 구조로"가 어떤 컨벤션 문서보다 잘 먹힘 (`feature/_reference-slice/`)
-- **풀네임 명명** — 축약어 금지. 모델은 이름의 토큰을 그대로 신호로 쓴다
-- **DTO와 엔티티 분리** — 엔티티를 그대로 응답으로 내보내면 스키마 변경이 API 계약으로 새어나감
-- **enum은 반드시 enum으로** — String으로 두면 세션마다 다른 문자열을 쓰고 컴파일러가 못 잡음
-- **실행은 고정 스크립트로** — 세션이 실행 방법을 추측하면 포트를 바꾸거나 목으로 때움
-
----
-
-## 운영 절차
-
-**브랜치** — 슬라이스당 브랜치 1개, 순차 머지. 병렬 세션이 같은 브랜치에서 작업하면 서로 덮어쓴다.
-
-**계약 변경 요청 처리** — 세션이 "공용 레이어 변경 필요"를 보고했을 때
-
-1. 사람이 판단
-2. 공용 타입 수정
-3. **같은 타입 쓰는 다른 슬라이스 확인**
-4. 끝난 슬라이스면 재작업 여부 결정
-5. 컨텍스트 카드 갱신 후 세션 재개 (`project-all-docs/approvals.md`에 기록)
-
----
-
-## 장점 / 단점
-
-**장점**
-
-- **병렬처리:** 의존성이 낮은 두 슬라이스를 워크트리로 병렬 구현 가능
-- **최소 컨텍스트:** 토큰 비용 절감, 환각/망각 최소화
-- **검증 최적화:** I/O 기반 슬라이스는 최소 TC와 피쳐 단위 E2E를 가능하게 하고, 린트·`.claudeignore`로 슬라이스 규칙을 강제
-
-**단점**
-
-- 선행 설계가 복잡하다
-- 병렬 처리로 인한 리뷰가 어렵다. 팀 단위 개발에는 부적합 (1인 개발용으로 설계)
-- 슬라이스마다 컨텍스트 카드를 제공해야 하는 운영 부담
+[MIT](LICENSE) © 2026 najunho04
