@@ -40,7 +40,7 @@
 | C~E. 슬라이스 재작업 | **10/31 완료** (관리자 세션에서 직접 구현, 백엔드 316·프론트 127 테스트 통과) | 7ab4322 외 |
 | `shared.color.SEASON_PALETTES` 임시 별칭 삭제 | 10/31 완료 | 7ab4322 |
 | Neon(운영) DB 마이그레이션 | **10/31 완료** — users 에 season_subtype·face_colors 추가(기존 진단은 season NULL 로 초기화), products·fittings 재생성 후 로컬 eBay 상품 1,528개·PRODUCT 평균 복사. 핀·사용자·스와이프·옷장 사진 유지. **배포된 예전 코드는 새 스키마와 맞지 않으므로 새 코드 배포 전까지 운영 사이트의 진단·추천·피팅이 깨진다** | 백업 `project/backend/var/db-backup-20261026/neon-full-20261031.dump` |
-| F. 제출 준비 | **11/02 진행 중** — 영어 README·MIT·레포 공개·스크린샷·Devpost 텍스트·영상 대본·테스트 계정 완료. 남은 것: 영상 업로드, 데모 URL, Devpost 제출. 운영 수정: YouCam 키 교체, hair_color 누락 502 수정, 상품 이미지 s-l1600, 중복 상품 51개 삭제(1,477개) | [`submission/README.md`](../submission/README.md) |
+| F. 제출 준비 | **11/02 진행 중** — 영어 README·MIT·레포 공개·스크린샷·Devpost 텍스트·영상 대본·테스트 계정 완료. 남은 것: 영상 업로드, 데모 URL, Devpost 제출. 운영 수정: YouCam 키 교체, hair_color 누락 502 수정, 상품 이미지 s-l1600, 중복 상품 51개 삭제(1,477개) | 로컬 `submission/` (원격 미포함) |
 
 ### DB 환경
 

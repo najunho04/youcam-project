@@ -1,2 +1,6 @@
 node_modules/
 .env
+
+# 로컬 전용 (원격에 올리지 않음)
+design-sample/
+submission/
