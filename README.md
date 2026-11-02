@@ -4,7 +4,7 @@
 
 Built for the **YouCam API Skin AI & eCommerce VTO Hackathon** (Perfect Corp).
 
-- **Live demo:** <!-- TODO: replace with the Vercel production URL --> `https://<your-vercel-domain>`
+- **Live demo:** https://colorfit-topaz.vercel.app/
 - **Demo video:** <!-- TODO --> `https://youtu.be/<id>`
 - **Test account for judges:** provided in the Devpost submission (Testing instructions). You can also sign up with any nickname — no email needed.
 

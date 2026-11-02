@@ -89,7 +89,7 @@ react, typescript, vite, python, fastapi, postgresql, pgvector, pytorch, fashion
 
 | 라벨 | URL |
 |---|---|
-| Live demo | <!-- Vercel 프로덕션 URL --> |
+| Live demo | https://colorfit-topaz.vercel.app/ |
 | Source code | https://github.com/najunho04/youcam-project |
 
 ## Video demo link
@@ -108,7 +108,7 @@ react, typescript, vite, python, fastapi, postgresql, pgvector, pytorch, fashion
 ## 심사위원용 테스트 접근 (Testing instructions)
 
 ```
-Live demo: <!-- URL -->
+Live demo: https://colorfit-topaz.vercel.app/
 Test account — nickname: <!-- --> / password: <!-- -->
 This account has already completed personal color and swipes, so it opens straight to recommendations. You can also sign up with any nickname (no email needed) and go through the full flow in about 3 minutes.
 Tip: for the face photo, face the camera directly in even light with your face filling most of the frame.
