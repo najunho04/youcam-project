@@ -3,15 +3,18 @@ import type { CSSProperties } from 'react'
 import { useMessages } from '../../shared/i18n'
 import { AUTH_MESSAGES } from './messages'
 
-/** 코디 일러스트 다섯 장 (public/landing) */
+/** 코디 일러스트 여덟 장 (public/landing) */
 const LOOK_IMAGE_SOURCES = [
   '/landing/hero-woman-sketch.webp',
   '/landing/look-woman-check-shirt.webp',
   '/landing/look-man-denim-jacket.webp',
   '/landing/look-man-zip-hoodie.webp',
-  '/landing/look-man-gray-knit.webp',
+  '/landing/look-man-plaid-zip-jacket.webp',
+  '/landing/look-woman-black-henley.webp',
+  '/landing/look-man-brown-knit-polo.webp',
+  '/landing/look-woman-gray-knit.webp',
 ]
-/** 바퀴가 끊기지 않게 다섯 장을 세 번 깔아 15장으로 돈다. 보이는 9장 바깥에서만 반대편으로 넘어간다. */
+/** 바퀴가 끊기지 않게 여덟 장을 세 번 깔아 24장으로 돈다. 보이는 9장 바깥에서만 반대편으로 넘어간다. */
 const CARD_COUNT = LOOK_IMAGE_SOURCES.length * 3
 /** 가운데에서 양옆 네 칸까지 보인다 (둥근 부채꼴 9장). */
 const VISIBLE_RANGE = 4

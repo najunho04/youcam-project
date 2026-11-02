@@ -18,7 +18,10 @@ const ENGLISH = {
       'Blue gingham shirt with brown trousers',
       'Denim jacket with olive trousers',
       'Zip hoodie with light jeans',
-      'Gray knit with brown slacks',
+      'Plaid zip-up jacket with dark jeans',
+      'Black henley top with light jeans',
+      'Brown knit polo with brown trousers',
+      'Gray knit with black midi skirt',
     ],
   },
   login: {
@@ -65,7 +68,10 @@ const KOREAN: typeof ENGLISH = {
       '블루 깅엄 셔츠와 브라운 팬츠 코디',
       '데님 재킷과 올리브 팬츠 코디',
       '후드 집업과 연청 바지 코디',
-      '그레이 니트와 브라운 슬랙스 코디',
+      '체크 집업 재킷과 생지 청바지 코디',
+      '블랙 헨리넥과 연청 바지 코디',
+      '브라운 니트 폴로와 브라운 슬랙스 코디',
+      '그레이 니트와 블랙 롱스커트 코디',
     ],
   },
   login: {
