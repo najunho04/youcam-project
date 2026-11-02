@@ -2,12 +2,13 @@
 import io
 
 import pytest
+from PIL import Image
 from fastapi import APIRouter, UploadFile
 
 from common.error import AppError, ErrorCode
 from main import app
 from shared.color import AVOID_PALETTES, SUBTYPE_PALETTES, delta_e, hex_to_lab
-from shared.image import read_upload_image
+from shared.image import MAX_IMAGE_SIDE, read_upload_image
 from shared.security import CurrentUser
 
 probe_router = APIRouter()
@@ -58,6 +59,18 @@ def test_read_upload_image(sample_image_bytes):
     with pytest.raises(AppError) as error:
         read_upload_image(UploadFile(io.BytesIO(b"not an image")))
     assert error.value.error_code == ErrorCode.INVALID_IMAGE
+
+
+def test_read_upload_image_shrinks_large_image(sample_image_bytes):
+    image = read_upload_image(UploadFile(io.BytesIO(sample_image_bytes(size=5000))))
+    with Image.open(io.BytesIO(image.data)) as resized:
+        assert max(resized.size) == MAX_IMAGE_SIDE
+        assert resized.format == "JPEG"
+
+
+def test_read_upload_image_keeps_small_image_bytes(sample_image_bytes):
+    data = sample_image_bytes()
+    assert read_upload_image(UploadFile(io.BytesIO(data))).data == data
 
 
 def test_color_utils():
